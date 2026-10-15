@@ -166,8 +166,8 @@ method configure : common ( $argv //= \@ARGV ) {
     shift @$argv
       if refstr($argv) eq 'ARRAY' && $$argv[0] && $$argv[0] =~ /^--?$/;
 
-        my @sslcert_k = qw'certbundle certfile';
-        push @sslcert_k, map { my @w = /^(cert)[_-]?(.+)$/g; "ssl-$_" } @sslcert_k;
+    my @sslcert_k = qw'certbundle certfile';
+    push @sslcert_k, map { my @w = /^(cert)[_-]?(.+)$/g; "ssl-$_" } @sslcert_k;
 
     # Pass through some commands to Plack::Runner for now
     push @$argv, (
@@ -176,9 +176,16 @@ method configure : common ( $argv //= \@ARGV ) {
         '-s', $cliopt{server},
 
         # SSL
-        '--ssl', '--ssl-server', '--ssl-cert-file',
-        path( first {$_} @cliopt{qw'certbundle certfile cert-bundle cert-file ssl-cert-file' } )->absolute,
-        '--ssl-key-file', path( $cliopt{keyfile} )->absolute,
+        '--ssl',
+        '--ssl-server',
+        '--ssl-cert-file',
+        path(
+            first { $_ } @cliopt{
+                qw'certbundle certfile cert-bundle cert-file ssl-certfile ssl-cert-file'
+            }
+        )->absolute,
+        '--ssl-key-file',
+        path( @cliopt{qw'keyfile key-file ssl-keyfile ssl-keyfile'} )->absolute,
 
         # ...
         map { ( '--listen', $_ ) } $cliopt{listen}->@*

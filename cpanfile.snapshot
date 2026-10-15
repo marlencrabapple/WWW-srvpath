@@ -1479,10 +1479,10 @@ DISTRIBUTIONS
       Exporter 5.57
       ExtUtils::MakeMaker 0
       perl 5.008
-  IO-Handle-Common-0.01.1-TRIAL
-    pathname: C/CR/CRABAPP/IO-Handle-Common-0.01.1-TRIAL.tar.gz
+  IO-Handle-Common-0.01_3-TRIAL
+    pathname: C/CR/CRABAPP/IO-Handle-Common-0.01_3-TRIAL.tar.gz
     provides:
-      IO::Handle::Common 0.001001
+      IO::Handle::Common 0.01_3
       IO::Handle::Common::Base undef
       IO::Handle::Common::Handle undef
     requirements:
@@ -1497,6 +1497,7 @@ DISTRIBUTIONS
       Module::Build::Tiny 0.034
       Object::Pad 0
       PadWalker 0
+      Path::Tiny 0
       perl v5.40.0
   IO-Socket-SSL-2.099
     pathname: S/SU/SULLR/IO-Socket-SSL-2.099.tar.gz
@@ -2129,14 +2130,14 @@ DISTRIBUTIONS
       strict 0
       warnings 0
       warnings::register 0
-  Path-Try-0.01.1-TRIAL
-    pathname: C/CR/CRABAPP/Path-Try-0.01.1-TRIAL.tar.gz
+  Path-Try-0.01_2-TRIAL
+    pathname: C/CR/CRABAPP/Path-Try-0.01_2-TRIAL.tar.gz
     provides:
-      Path::Try v0.1.1
-      Path::Try::Base v0.1.1
-      Path::Try::Error v0.1.1
+      Path::Try 0.01_2
+      Path::Try::Base 0.001001
+      Path::Try::Error 0.001001
     requirements:
-      IO::Handle::Common v0.1.1
+      IO::Handle::Common 0.01_2
       Module::Build::Tiny 0.035
       Object::Pad 0
       Path::Tiny 0

@@ -145,7 +145,7 @@ sub default_options {
             alias => [qw'tls']
         },
         certfile => {
-            alias =>
+            alias => []
         }
     );
 
@@ -173,6 +173,8 @@ ADJUST {
 ADJUST : params (:$config = []) {
     $self->load_config($_)
       for @$config;
+
+    dmsg $self, $data;
 };
 
 method default_config () {
