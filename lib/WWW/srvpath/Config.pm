@@ -13,6 +13,146 @@ use Const::Fast;
 use IO::Handle::Common;
 use WWW::srvpath::Util;
 
+sub optdef_canonalias (%optdef) {
+    map {
+        (
+            $_ => [
+                $_,
+                reftype( $optdef{$_} ) eq 'ARRAY' ? $optdef{$_}->@*
+                : reftype( $optdef{$_} ) eq 'HASH'
+                  && $optdef{$_}->{alias}
+                  && refstr( $optdef{$_}->{alias} ) eq 'ARRAY'
+                ? $optdef{$_}->{alias}->@*
+                : ()
+            ]
+        )
+    } keys %optdef;
+}
+
+sub find_alias (%optdef) {
+    foreach my ( $canon, $allname ) (
+
+        # Maybe its better to flatten the names in the foreach?
+        map {
+            (
+                $_ => [
+                    $_,
+                    reftype( $optdef{$_} ) eq 'ARRAY' ? $optdef{$_}->@*
+                    : reftype( $optdef{$_} ) eq 'HASH'
+                      && $optdef{$_}->{alias}
+                      && refstr( $optdef{$_}->{alias} ) eq 'ARRAY'
+                    ? $optdef{$_}->{alias}->@*
+                    : ()
+                ]
+            )
+        } keys %optdef
+      )
+    {
+        my $prefix = $optdef{$canon}->{prefix};
+
+        foreach my $name (@$allname) {
+            for my ( $ptn, $subst ) (
+                qr/-/  => '_',
+                qr/_/  => '-',
+                qr/-|/ => '',
+                ( $prefix ? ( qr/^$prefix/ => '' ) : () )
+              )
+            {
+                if ( my $alias = ( $name =~ s/$ptn/$subst/gr ) ) {
+                    push $optdef{$canon}->{alias}->@*, $alias;
+                }
+            }
+        }
+    }
+}
+
+sub to_getopt (%optdef) {
+    my @spec;
+    foreach my ( $canon, $alias ) (%optdef) {
+
+        # my @spec;
+        ( scalar @$alias ? ( $$alias[ scalar @$alias - 1 ] ) : $canon ) .=
+          ':' . $optdef{$canon}->{type}
+          if $optdef{$canon}->{type};
+        push @spec, join '|', ( $canon, @$alias );
+        push @spec, $optdef{$canon}->{dest};
+    }
+    @spec;
+}
+
+sub from_getopt (@spec) {
+    foreach my ( $prev, $curr, $next ) ( undef, @spec ) {
+        if ( refstr($curr) eq 'CODE' ) {
+            next;
+        }
+        if ( !reftype($curr) ) {
+
+            # Detect destination or callback (but don't do anything as of
+            # yet...)
+            my ( $name, @alias ) = split /\|/, $curr;
+            my %optdef = ( $name => \@alias );
+            if ( scalar @alias ) {
+                my ( $last, $type ) = ( split /:/, pop @alias );
+                $optdef{$name} = { alias => [ @alias, $last ] };
+                $optdef{$name}->{type} = $type if $type;
+            }
+
+            %optdef = find_alias(%optdef);
+            $curr   = \%optdef;
+
+            if ( my $type = reftype($next) ) {
+                if ( $type eq 'CODE' ) {
+                    if ( $curr eq '<>' ) {    # bare arg
+                    }
+                    else {                    # 'name' => \&callback
+                    }
+                }
+                elsif ( $type eq 'ARRAY' ) {    # (s|i)@ or (s|i){[0-9]?,[0-9]?}
+                }
+                elsif ( $type eq 'HASH' ) {     # (s|i)% ...
+                }
+                else {
+                    error "'$type' not explicitly supported";
+                }
+
+                $$curr{dest} = $next;
+            }
+            else {    # $next is next option
+            }
+        }
+
+    }
+
+    # foreach my $spec (@spec) {
+    #     my ( $name, @alias ) = split /\|/, $spec;
+    #     my %optdef = ( $name => \@alias );
+    #     if ( scalar @alias ) {
+    #         my ( $last, $type ) = ( split /:/, pop @alias );
+    #         $optdef{$name} = { alias => [ @alias, $last ] };
+    #         $optdef{$name}->{type} = $type if $type;
+    #     }
+
+    #     %optdef = find_alias(%optdef);
+    # }
+}
+
+sub default_options {
+    my %default = (
+        dirindex => {
+            alias => [qw'index generate-index'],
+        },
+        ssl => {
+            alias => [qw'tls']
+        },
+        certfile => {
+            alias =>
+        }
+    );
+
+}
+
+const our %DEFAULT => default_options;
+
 const our @CONFIGDIR_DEFAULT =>
   ( path(File::ConfigDir::xdg_config_home)->absolute, path("./")->absolute, );
 

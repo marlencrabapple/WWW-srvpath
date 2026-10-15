@@ -10,8 +10,8 @@ requires 'Crypt::Argon2';
 requires 'Cwd';
 requires 'File::ConfigDir';
 
-requires 'IO::Handle::Common', '0.01.1',
-  dist => "CRABAPP/IPC-Handle-Common-0.01.1-TRIAL.tar.gz";
+requires 'IO::Handle::Common', '0.01_3',
+  dist => "CRABAPP/IO-Handle-Common-0.01_3-TRIAL.tar.gz";
 
 requires 'IO::Socket::SSL';
 
@@ -20,7 +20,7 @@ requires 'IPC::Nosh', '0.01.4',
 
 requires 'Net::SSLeay';
 
-requires 'Path::Try';
+requires 'Path::Try', '0.01_3;
 
 requires 'Plack::App::Directory';
 requires 'Plack::Builder';

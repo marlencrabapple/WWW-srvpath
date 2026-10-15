@@ -1,36 +1,86 @@
 #!/usr/bin/env perl
+use Object::Pad ':experimental(:all)';
 
-package srvpath::CLI;
+package srvpath;
+
+class srvpath;    #: does(WWW::srvpath::CLI);
 
 use utf8;
 use v5.44;
 
+use builtin;
 use Path::Try;
-use Getopt::Long
-  qw(GetOptionsFromArray :config no_ignore_case bundling passthrough autoabbrev);
+use Getopt::Long qw(:config no_ignore_case bundling passthrough autoabbrev);
 use Const::Fast;
 use IO::Handle::Common;
+use List::Util 'first';
 use WWW::srvpath;
 use WWW::srvpath::Base 'refstr';
 
-sub configure ( $argv //= \@ARGV ) {
-    my %cliopt = ();
+# my class CLIOpt {
+#     field $name;
+#     field $type;
+#     field $callback;
+
+#     method stringify {
+#         join '', @$name;
+#     }
+
+#     method spec (@n) {
+
+#     }
+# };
+
+# method GetOptionsFromArray ( $argv //= \@ARGV, $dest //= {}, @opt ) {
+#     fatal "No options configured" unless scalar @opt;
+
+#     foreach my ( $prev, $curr, $next ) ( undef, @opt ) {
+#         if ( refstr($curr) eq 'CODE' ) {
+#             next;
+#         }
+#         if ( (refstr($)!reftype($curr)) && refstr($next) eq 'CODE' ) {
+
+#             # 'name' => \&callback
+#             if ( $curr eq '<>' ) {
+
+#                 # bare arg
+#             }
+#             else {
+
+#             }
+
+#         }
+
+#     }
+
+#     GetOptionsFromArray( $argv, $dest, @opt );
+
+#     $dest;
+# }
+
+method GetOptionsFromArray : common {
+    Getopt::Long::GetOptionsFromArray(@_);
+}
+
+method configure : common ( $argv //= \@ARGV ) {
+    my %cliopt = ( index => true );
 
     const my %pos_dest => ( 0 => 'root', 1 => 'mount' );
 
-    GetOptionsFromArray(
+    $class->GetOptionsFromArray(
         $argv, \%cliopt,
+        'index|generate-index!',
 
         # 'port:i',
         'ssl|tls|x509:s',    # = server, client, mutual (default: server)
-        'certfile|certificate|ssl-cert-file|ssl-certfile:s',
+        'certfile|cert-file|certificate|ssl-cert-file|ssl-certfile:s',
         'validpath|intermediates|trustchain:s@'
         , # intermediate(s) as separate files (we may produce more specialized bundles similar to cfssl)
-        'certbundle:s'
+        'certbundle|cert-bundle:s'
         ,    # leaf cert with intermediates/trust chain in a single file
 
         # 'intermediates|chain:s'
-        'keyfile|key|ssl-key-file|ssl-keyfile:s',
+        'keyfile|key-file|key|ssl-key-file|ssl-keyfile:s',
 
         'listen:s@',
         'socket|sockfile|unix:s',
@@ -116,6 +166,9 @@ sub configure ( $argv //= \@ARGV ) {
     shift @$argv
       if refstr($argv) eq 'ARRAY' && $$argv[0] && $$argv[0] =~ /^--?$/;
 
+        my @sslcert_k = qw'certbundle certfile';
+        push @sslcert_k, map { my @w = /^(cert)[_-]?(.+)$/g; "ssl-$_" } @sslcert_k;
+
     # Pass through some commands to Plack::Runner for now
     push @$argv, (
 
@@ -124,8 +177,8 @@ sub configure ( $argv //= \@ARGV ) {
 
         # SSL
         '--ssl', '--ssl-server', '--ssl-cert-file',
-        ( $cliopt{certbundle} // $cliopt{certfile} ),
-        '--ssl-key-file', $cliopt{keyfile},
+        path( first {$_} @cliopt{qw'certbundle certfile cert-bundle cert-file ssl-cert-file' } )->absolute,
+        '--ssl-key-file', path( $cliopt{keyfile} )->absolute,
 
         # ...
         map { ( '--listen', $_ ) } $cliopt{listen}->@*
@@ -143,7 +196,7 @@ use v5.44;
 
 use IO::Handle::Common;
 
-my $srvpath = srvpath::CLI::configure( \@ARGV );
+my $srvpath = srvpath->configure( \@ARGV );
 my $psgi    = $srvpath->to_psgi;
 
 unless (caller) {

@@ -9,6 +9,7 @@ use v5.40;
 
 our $VERSION = "0.01";
 
+use builtin;
 use Path::Try;
 use List::Util 'all';
 use MIME::Types 'by_suffix';
@@ -26,7 +27,8 @@ Plack::MIME->set_fallback( sub { ( by_suffix $_[0] )[0] } );
 field $debug   : param : accessor //= $ENV{DEBUG};
 field $root    : param //= '.';
 field $mount   : param //= '/';
-field $verbose : param //= 0;
+field $verbose : param //= false;
+field $index   : param //= false;
 
 field $app;
 field $builder { Plack::Builder->new }
