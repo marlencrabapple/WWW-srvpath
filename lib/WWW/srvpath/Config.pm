@@ -11,43 +11,30 @@ use Path::Tiny;
 use File::ConfigDir;
 use Const::Fast;
 use IO::Handle::Common;
+use WWW::srvpath::Base;
 use WWW::srvpath::Util;
+use Attribute::Handlers;
 
-sub optdef_canonalias (%optdef) {
+# my class Opt
+
+method flatten : prototype($) : common ($optdef) {
     map {
         (
             $_ => [
                 $_,
-                reftype( $optdef{$_} ) eq 'ARRAY' ? $optdef{$_}->@*
-                : reftype( $optdef{$_} ) eq 'HASH'
-                  && $optdef{$_}->{alias}
-                  && refstr( $optdef{$_}->{alias} ) eq 'ARRAY'
-                ? $optdef{$_}->{alias}->@*
+                reftype( $$optdef{$_} ) eq 'ARRAY' ? $$optdef{$_}->@*
+                : reftype( $$optdef{$_} ) eq 'HASH'
+                  && $$optdef{$_}->{alias}
+                  && refstr( $$optdef{$_}->{alias} ) eq 'ARRAY'
+                ? $$optdef{$_}->{alias}->@*
                 : ()
             ]
         )
-    } keys %optdef;
+    } keys %$optdef;
 }
 
-sub find_alias (%optdef) {
-    foreach my ( $canon, $allname ) (
-
-        # Maybe its better to flatten the names in the foreach?
-        map {
-            (
-                $_ => [
-                    $_,
-                    reftype( $optdef{$_} ) eq 'ARRAY' ? $optdef{$_}->@*
-                    : reftype( $optdef{$_} ) eq 'HASH'
-                      && $optdef{$_}->{alias}
-                      && refstr( $optdef{$_}->{alias} ) eq 'ARRAY'
-                    ? $optdef{$_}->{alias}->@*
-                    : ()
-                ]
-            )
-        } keys %optdef
-      )
-    {
+method canon_alias_kv : common : prototype(%) (%optdef) {
+    foreach my ( $canon, $allname ) ( $class->flatten( \%optdef ) ) {
         my $prefix = $optdef{$canon}->{prefix};
 
         foreach my $name (@$allname) {
@@ -138,6 +125,7 @@ sub from_getopt (@spec) {
 
 sub default_options {
     my %default = (
+        charset  => 'UTF-8',
         dirindex => {
             alias => [qw'index generate-index'],
         },
@@ -156,17 +144,122 @@ const our %DEFAULT => default_options;
 const our @CONFIGDIR_DEFAULT =>
   ( path(File::ConfigDir::xdg_config_home)->absolute, path("./")->absolute, );
 
+my class ConfigFile : does(WWW::srvpath::Base) {
+    use v5.44;
+
+    use Sublike::Extended;
+    use List::Util qw'none';
+    use IO::Handle::Common;
+    use Const::Fast;
+    use Path::Try;
+
+    const our $toml => TOML::Tiny->new( strict => 1 );
+
+    field $file : reader = [];
+    field $data : reader = {};
+
+    ADJUST : params (%param) {
+        $self->add_file( $param{file}, dest => $param{dest} )
+
+        #  $self->load_config;
+
+    };
+
+    # method load_config {
+    #     $data = $toml->decode($file)
+    # }
+
+    extended method add_file ( $in, : $noload = 0, : $dest = $data ) {
+
+        # dmsg $in, $noload, $file;
+
+        foreach my $in (
+            grep {
+                my $_in = $_;
+                $_in->is_file && none { $_in eq $_->absolute } @$file
+            }
+            map { path($_)->absolute } ( ARRAY($in) )
+          )
+        {
+            push @$file, $in;
+            next if $noload;
+
+            $self->load_config( $in, noload => $noload, dest => $dest );
+
+        }
+
+    }
+
+    method load_config ( $file //= $self->file, %opt ) {
+        $self->add_file( $file, noload => 1, %opt )
+          if $file && refstr($file) && refaddr($file) == refaddr( $self->file );
+
+        if ( !$file->exists ) {
+            return undef if $opt{try};
+            fatal "Config file '$file' does not exist.";
+        }
+
+        my $data_merge = $toml->decode( $file->slurp_utf8 );
+
+        $self->merge_config( $data_merge, $opt{dest} );
+    }
+
+    method merge_config ( $data_merge, $dest = $data ) {
+        foreach my ( $key, $val ) ( $data_merge->%* ) {
+            if ( my $val_curr = $$dest{$key} ) {
+                if (   ( !ref $val && !ref $val_curr )
+                    || ( ref $val eq ref $val_curr ) )
+                {
+                    if ( ref $val eq 'ARRAY' ) {
+                        push @$val_curr, @$val;
+                    }
+                    elsif ( ref $val eq 'HASH' ) {
+
+                        # $val_curr = $self->merge_config( $val, $val_curr );
+                        $self->merge_config( $val, $val_curr );
+                    }
+                    else {
+                        # $$dest{$key} = $val;
+                        $val_curr = $val;
+                    }
+                }
+                else {
+                    fatal
+                      "Config key '$key' has type mismatch: current type is '"
+                      . ref $val_curr
+                      . "' but new value has type '"
+                      . ref $val . "'";
+                }
+            }
+            else {
+                $$dest{$key} = $val;
+            }
+        }
+        $dest;
+    }
+
+    method serialize {
+        $toml->encode($data);
+    }
+
+    method write( $str //= $toml->encode($data) ) {
+        $file->spew_utf8($str);
+    }
+};
+
 field $toml = TOML::Tiny->new;
 field $file = [
+    grep { $_->is_file }
     map  { path("$_/srvpath.toml") }
     grep { $_ } @CONFIGDIR_DEFAULT
 ];
-field $data : reader = {};
+field $data : reader = { charset => 'UTF-8' };
 
 # Default configuration files. May warn on error but will fall back to minimal
 # inline config
 ADJUST {
-    dmsg $file;
+    $self->default_config;
+    $self;
 };
 
 # User provided/non-default config files. Fatal when path does not exist.
@@ -177,70 +270,35 @@ ADJUST : params (:$config = []) {
     dmsg $self, $data;
 };
 
+method load_config ( $in, %opt ) {
+    ConfigFile->new( file => $in, %opt, dest => $data );
+}
+
 method default_config () {
     for my $path (@$file) {
-        if ( !$self->$self->try_config($file) ) {
+        my $_config = $self->try_config( $path, dest => $data );
+        if ( !$path->exists || refstr($_config) ne 'HASH' ) {
             if ( $path->parent eq $CONFIGDIR_DEFAULT[0] ) {
-                $$file[0]->spew_utf8();
+                $$file[0]->spew_utf8( $toml->encode($data) );
             }
         }
+        $path = $_config;
     }
-    $self->try_config($_) for $file->@*;
+
+    # dmsg $self;
+
 }
 
 method try_config ( $file, %opt ) {
     $self->load_config( $file, %opt, try => 1 );
 }
 
-method load_config ( $file, %opt ) {
-    my $path = path($file)->realpath;
-
-    if ( !$path->exists ) {
-        return undef if $opt{try};
-        fatal "Config file '$file' does not exist.";
-    }
-
-    my $data_merge = $toml->decode( path($path)->slurp_utf8 );
-    $self->merge_config($data_merge);
-}
-
-method merge_config ( $data_merge, $dest = $data ) {
-
-    # dmsg $data_merge, $dest;
-    foreach my ( $key, $val ) ( $data_merge->%* ) {
-        if ( my $val_curr = $$dest{$key} ) {
-            if (   ( !ref $val && !ref $val_curr )
-                || ( ref $val eq ref $val_curr ) )
-            {
-                if ( ref $val eq 'ARRAY' ) {
-                    push @$val_curr, @$val;
-                }
-                elsif ( ref $val eq 'HASH' ) {
-
-                    # $val_curr = $self->merge_config( $val, $val_curr );
-                    $self->merge_config( $val, $val_curr );
-                }
-                else {
-                    # $$dest{$key} = $val;
-                    $val_curr = $val;
-                }
-            }
-            else {
-                fatal "Config key '$key' has type mismatch: current type is '"
-                  . ref $val_curr
-                  . "' but new value has type '"
-                  . ref $val . "'";
-            }
-        }
-        else {
-            $$dest{$key} = $val;
-        }
-    }
-    $dest;
-}
-
 method config (%opt) {
     $data;
+}
+
+method write ($file) {
+    $;;
 }
 
 const our $config_builtin_toml => <<'...';
