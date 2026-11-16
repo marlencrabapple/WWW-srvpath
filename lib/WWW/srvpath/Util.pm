@@ -1,7 +1,7 @@
 use Object::Pad ':experimental(:all)';
 
 package WWW::srvpath::Util;
-role WWW::srvpath::Util;    #: does(WWW::srvpath::Config);
+role WWW::srvpath::Util : does(WWW::srvpath::Base);
 
 use utf8;
 use v5.44;
@@ -18,18 +18,22 @@ use HTML::Escape;
 use URI::Escape;
 use Net::Domain 'hostfqdn';
 use List::Util 'none';
+use Text::Xslate;
+use WWW::srvpath::Base;
 
 use Exporter;
 use parent 'Exporter';
 
-our @EXPORT_OK = qw'path2uri epoch file_unique path_uri_encode';
-our @EXPORT    = @EXPORT_OK;
+our @EXPORT_OK =
+  qw'path2uri epoch file_unique uri_escape uri_unescape uri_escape_utf8 escape_html path_uri_encode';
+our @EXPORT = @EXPORT_OK;
 
-field $json :reader = JSON::MaybeXS->new;
+field $tx   : reader = Text::Xslate->new( path => './view' );
+field $json : reader = JSON::MaybeXS->new;
 
 ADJUST {
     $json->pretty(1) if $self->debug;
-    $json->utf8(1) if $self->config->{charset} =~ /^utf-?8$/i;
+    $json->utf8(1)   if $self->config->{charset} =~ /^utf-?8$/i;
 }
 
 sub epoch( $join = '', %opt ) {
@@ -84,12 +88,12 @@ sub file_unique(@in) {
     FileUnique->file_unique(@in);
 }
 
-sub path_uri_encode( $path, %opt ) {
+method path_uri_encode : common ( $path, %opt ) {
     my $return_joined;
     $opt{join} //= "\n";
 
     ( $path, $return_joined ) = [ split qr!/!, $path ]
-      if ( ref $path && ref $path eq 'ARRAY' );
+      unless refstr($path) eq 'ARRAY';
 
     my @pathencoded = (
         map {

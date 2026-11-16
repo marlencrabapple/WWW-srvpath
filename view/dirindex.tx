@@ -1,0 +1,38 @@
+: include "part/header.tx"
+
+<div class="container is-full">
+<div class="section">
+  <h1 class="title is-3">
+    Index of <: $path :>
+  </h1>
+  <ul class="smart-grid ">
+    <li class="grid is-col-min-3" >
+      <span class="strong cell is-col-span-4">Filename</span>
+      <span class="cell">Size</span>
+      <span class="cell ">Type</span>
+      <span class="cell">Last Modified</span>
+    </li>
+    :for $file -> $file {
+    <li class="grid is-col-min-3"">
+      <span class="cell is-col-span-4">
+        <a href="<: $file.uri :>">
+          <: $file.name :>
+        </a>
+      </span>
+      <span class="cell">
+        <: $file.size :>
+      </span>
+      <span class="cell">
+        <: $file.type :>
+      </span>
+      <span class="cell">
+        <: $file.mtime :>
+      </span>
+
+    </li>
+    : }
+  </ul>
+  </div>
+</div>
+
+: include "part/footer.tx"

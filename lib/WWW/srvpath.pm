@@ -8,7 +8,7 @@ class WWW::srvpath : does(WWW::srvpath::Config) : does(WWW::srvpath::User) :
 use utf8;
 use v5.40;
 
-our $VERSION = "0.01_01";
+our $VERSION = "0.01_02";
 
 use builtin;
 use Path::Try;
@@ -19,12 +19,11 @@ use Plack::App::Directory;
 use Plack::MIME;
 use List::Util qw'pairmap first all';
 use IO::Handle::Common;
+use WWW::srvpath::DirIndex;
 
 use subs qw'on_psgi to_app';
 
 Plack::MIME->set_fallback( sub { ( by_suffix $_[0] )[0] } );
-
-field $debug : param : accessor //= $ENV{DEBUG};
 
 # field $path                     //= '.';
 # field $mount                    //= '/';
@@ -73,21 +72,20 @@ ADJUST : params (
   : $cgi   //= builtin::false,
   %param
   ) {
-
-    dmsg( $self, $index, $path, $root, $mount, $cgi, \%param );
-
     $path = path( $path // $root );
 
     if ( $path->is_dir ) {
-
         if ($index) {
-
             if ( $index == 1 ) {
-                $app = Plack::App::Directory->new( root => $root );
 
+                # $app = Plack::App::Directory->new( root => $root );
+                $app = WWW::srvpath::DirIndex->new(
+                    root   => $root,
+                    config => $self->config
+                );
             }
             else {
-                $app = WWW::srvpath::Static::Dir->new(
+                $app = Plack::App::File->new(
                     root  => $path,
                     mount => $mount,
                     index => 1
@@ -95,7 +93,7 @@ ADJUST : params (
             }
         }
         else {
-            $app = WWW::srvpath::Static::File->new( root => $path );
+            $app = Plack::App::File->new( root => $path );
         }
 
     }
@@ -104,9 +102,9 @@ ADJUST : params (
           CGI::Emulate::PSGI->handler( CGI::Compile->compile( $path, $path ) );
     }
     else {
-        $app = WWW::srvpath::Static::File->new( file => $path );
+        $app = Plack::App::File->new( file => $path );
     }
-    dmsg $app;
+
     if ( $ENV{DEBUG} || $self->debug ) {
         $builder->add_middleware('Debug');
         $builder->add_middleware('StackTrace');
@@ -121,7 +119,8 @@ ADJUST : params (
         'Auth::Basic',
         authenticator => sub ( $user, $pass, $env ) {
             foreach my ($dbuser) ( $self->userdb->@* ) {
-                dmsg $dbuser;
+
+                # dmsg $dbuser;
                 if ( $user eq $$dbuser{user}
                     && WWW::srvpath->valid_pass( $pass, $$dbuser{crypt} ) )
                 {
@@ -145,6 +144,46 @@ ADJUST : params (
             $res->finalize;
         }
     );
+
+    $builder->mount(
+        '/s' => Plack::App::File->new( root => './static' )->to_app
+    );
+    $builder->mount(
+        '/s/bulma.min.css' => Plack::App::File->new(
+            file => './inc/bulma/css/bulma.min.css'
+        )->to_app
+    );
+
+    $builder->mount(
+        '/favicon.ico' =>
+          Plack::App::File->new( file => './static/favicon.ico' )->to_app
+    );
+
+    #  $r->get( '/s/:path' => StaticSrv->new( root => './static' )->to_route );
+    # $r->get(
+    #     '/s/bulma.min.css' => sub ( $c, @arg ) {
+    #         const my $static =>
+    #           StaticSrv->new( file => './inc/bulma/css/bulma.min.css' );
+
+    #         my $res = $c->req->new_response;
+    #         $res->status(200);
+    #         $res->body( $static->file->openr_raw );
+    #         $res;
+    #     }
+    # );
+
+    # $r->get(
+    #     'favicon.ico' => sub ( $c, @arg ) {
+    #         const my $static =>
+    #           StaticSrv->new( file => './static/favicon.ico' );
+
+    #         my $res = $c->req->new_response;
+    #         $res->status(200);
+    #         $res->body( $static->file->openr_raw );
+    #         $res;
+    #     }
+    # );
+
   }
 
   #   method root

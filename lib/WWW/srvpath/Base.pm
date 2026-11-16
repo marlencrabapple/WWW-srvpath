@@ -19,7 +19,7 @@ use vars qw'@EXPORT  @EXPORT_OK';
 
 our @EXPORT_SUB    = @EXPORT_OK;
 our @EXPORT_COMMON = qw'';
-
+field $debug : reader = $ENV{DEBUG} || 1;
 APPLY($class_mop) {
     __PACKAGE__->apply($class_mop)
 };
