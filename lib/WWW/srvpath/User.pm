@@ -30,7 +30,7 @@ method add_user ( $name, @pass ) {
 
         if ( $pass{password} ) {
             $user{crypt} =
-              hashpass( $pass{password} );
+              WWW::srvpath::User::Auth::hashpass( delete $pass{password} );
         }
         elsif ( $pass{$crypt_key} ) {
             fatal "Not a valid argon2 hash"
@@ -44,4 +44,5 @@ method add_user ( $name, @pass ) {
     }
 
     push @$userdb, \%user;
+    \%user;
 }

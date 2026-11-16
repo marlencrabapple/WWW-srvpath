@@ -3,7 +3,7 @@ use Object::Pad ':experimental(:all)';
 
 package srvpath;
 
-class srvpath;    #: does(WWW::srvpath::CLI);
+class srvpath : does(WWW::srvpath::Base);    #: does(WWW::srvpath::CLI);
 
 use utf8;
 use v5.44;
@@ -15,7 +15,8 @@ use Const::Fast;
 use IO::Handle::Common;
 use List::Util 'first';
 use WWW::srvpath;
-use WWW::srvpath::Base 'refstr';
+
+# use WWW::srvpath::Base 'refstr';
 
 # my class CLIOpt {
 #     field $name;
@@ -69,7 +70,7 @@ method configure : common ( $argv //= \@ARGV ) {
 
     $class->GetOptionsFromArray(
         $argv, \%cliopt,
-        'index|generate-index!',
+        'index|dirindex|autoindex!',
 
         # 'port:i',
         'ssl|tls|x509:s',    # = server, client, mutual (default: server)
@@ -113,6 +114,7 @@ method configure : common ( $argv //= \@ARGV ) {
   # current winnner: WWW::cgit object construction `ADJUST :params``
 
         'config|config-file|config-path:s@',
+        'wrapcgi|exec',
 
         'path|srvpath|root|public|www:s@',    # valid input:
             #- list of root paths, mounted as basename in value of mount
@@ -169,29 +171,34 @@ method configure : common ( $argv //= \@ARGV ) {
     my @sslcert_k = qw'certbundle certfile';
     push @sslcert_k, map { my @w = /^(cert)[_-]?(.+)$/g; "ssl-$_" } @sslcert_k;
 
+    foreach my $k (@sslcert_k) {
+        if ( my $v = $cliopt{$k} ) {
+            $cliopt{certfile} //= $v;
+            last;
+        }
+    }
+
     # Pass through some commands to Plack::Runner for now
     push @$argv, (
 
         # Server
         '-s', $cliopt{server},
 
-        # SSL
-        '--ssl',
-        '--ssl-server',
-        '--ssl-cert-file',
-        path(
-            first { $_ } @cliopt{
-                qw'certbundle certfile cert-bundle cert-file ssl-certfile ssl-cert-file'
-            }
-        )->absolute,
-        '--ssl-key-file',
-        path( @cliopt{qw'keyfile key-file ssl-keyfile ssl-keyfile'} )->absolute,
+# SSL
+# '--ssl',
+# '--ssl-server',
+# '--ssl-cert-file',
+# map { path($_)->absolute } grep { $_ } (
+#     first { $_ } @cliopt{
+#         qw'certbundle certfile cert-bundle cert-file ssl-certfile ssl-cert-file'
+#     }
+# ),
+# '--ssl-key-file',
+# path( @cliopt{qw'keyfile key-file ssl-keyfile ssl-keyfile'} )->absolute,
 
         # ...
         map { ( '--listen', $_ ) } $cliopt{listen}->@*
     );
-
-    dmsg $argv, \%cliopt, $srvpath;
 
     $srvpath;
 }

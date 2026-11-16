@@ -25,8 +25,21 @@ use parent 'Exporter';
 our @EXPORT_OK = qw'path2uri epoch file_unique path_uri_encode';
 our @EXPORT    = @EXPORT_OK;
 
-sub epoch ( $join = '' ) {
-    join $join, Time::HiRes::gettimeofday;
+field $json :reader = JSON::MaybeXS->new;
+
+ADJUST {
+    $json->pretty(1) if $self->debug;
+    $json->utf8(1) if $self->config->{charset} =~ /^utf-?8$/i;
+}
+
+sub epoch( $join = '', %opt ) {
+    $opt{ms_pad} //= 6;
+    my ( $sec, $ms ) = Time::HiRes::gettimeofday;
+
+    $ms = '0' x ( $opt{ms_pad} - length $ms ) . $ms
+      if $opt{ms_pad} && $opt{ms_pad} >= 1;
+
+    join $join, $sec, $ms;
 }
 
 my class FileUnique {

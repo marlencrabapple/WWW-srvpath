@@ -13,19 +13,27 @@ use Const::Fast;
 use IO::Handle::Common;
 use Path::Try;
 
+APPLY {
+
+}
+
+ADJUST {
+
+}
+
+my class Dest {
+
+};
+
+my class Spec {
+
+};
+
 my $argv;
 my $dest;
 my $spec;
 
-my class CLIDest {
+sub GetOptions ( $dest, $spec, %opt ) {
 
-};
-
-my class OptSpec {
-
-};
-
-sub GetOptions ($dest, $spec, %opt) {
-
-  GetOptionsFromArray(($opt{argv} // \@ARGV), $dest)
+    GetOptionsFromArray( ( $opt{argv} // \@ARGV ), $dest );
 }

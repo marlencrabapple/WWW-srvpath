@@ -2,12 +2,13 @@ use Object::Pad ':experimental(:all)';
 
 package WWW::srvpath;
 
-class WWW::srvpath : does(WWW::srvpath::Config) : does(WWW::srvpath::User);
+class WWW::srvpath : does(WWW::srvpath::Config) : does(WWW::srvpath::User) :
+  does(WWW::srvpath::Util);
 
 use utf8;
 use v5.40;
 
-our $VERSION = "0.01";
+our $VERSION = "0.01_01";
 
 use builtin;
 use Path::Try;
@@ -16,49 +17,96 @@ use MIME::Types 'by_suffix';
 use Plack::Builder;
 use Plack::App::Directory;
 use Plack::MIME;
-use List::Util qw'first all';
+use List::Util qw'pairmap first all';
 use IO::Handle::Common;
 
-use WWW::srvpath::User;
-use WWW::srvpath::Util;
+use subs qw'on_psgi to_app';
 
 Plack::MIME->set_fallback( sub { ( by_suffix $_[0] )[0] } );
 
-field $debug   : param : accessor //= $ENV{DEBUG};
-field $root    : param //= '.';
-field $mount   : param //= '/';
+field $debug : param : accessor //= $ENV{DEBUG};
+
+# field $path                     //= '.';
+# field $mount                    //= '/';
 field $verbose : param //= false;
-field $index   : param //= false;
+
+# field $index                    //= false;
+field $param //= {};
 
 field $app;
-field $builder { Plack::Builder->new }
+field $builder = Plack::Builder->new;
 
-ADJUSTPARAMS($param) {
-    if ( all { $_ } @$param{qw'user pwhash'} ) {
-        $self->add_user( @$param{qw'user pwhash'} );
+ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
+    $param = \%param;
+    if ( all { $_ } ( $user, $pwhash ) ) {
+        $self->add_user( $user, $pwhash );
     }
 
     if ( all { $_ } @ENV{qw'SRVPATH_USER SRVPATH_PWHASH'} ) {
-        $self->add_user( $ENV{SRVPATH_USER}, $ENV{SRVPATH_PWHASH} );
+        $self->add_user(
+            pairmap { ( user => $a, $pwhash => $b ) }
+            @ENV{qw'SRVPATH_USER SRVPATH_PWHASH'}
+        );
     }
 
     foreach my $user ( $self->config->{userdb}->@* ) {
-        $self->add_user( $$user{name},
+        $user = $self->add_user( $$user{name},
             map { ( $_ => $$user{$_} ) } grep { $_ ne 'name' } keys %$user );
-    }
-}
 
-method to_psgi {
+        $self->config->{userdb} = $user;
+
+        # $self->config->write;
+    }
+  }
+
+  method to_psgi {
     $builder->to_app(@_);
 }
 
-method to_app {
-    $self->to_psgi(@_);
-}
+*to_app = \&to_psgi;
 
-ADJUST {
-    $app = Plack::App::Directory->new( root => $root );
+ADJUST : params (
+  : $index //= 1,
+  : $path  //= './',
+  : $root //= $path,
+  : $mount //= '/',
+  : $cgi   //= builtin::false,
+  %param
+  ) {
 
+    dmsg( $self, $index, $path, $root, $mount, $cgi, \%param );
+
+    $path = path( $path // $root );
+
+    if ( $path->is_dir ) {
+
+        if ($index) {
+
+            if ( $index == 1 ) {
+                $app = Plack::App::Directory->new( root => $root );
+
+            }
+            else {
+                $app = WWW::srvpath::Static::Dir->new(
+                    root  => $path,
+                    mount => $mount,
+                    index => 1
+                );
+            }
+        }
+        else {
+            $app = WWW::srvpath::Static::File->new( root => $path );
+        }
+
+    }
+    elsif ($cgi) {
+        $app =
+          CGI::Emulate::PSGI->handler( CGI::Compile->compile( $path, $path ) );
+    }
+    else {
+        $app = WWW::srvpath::Static::File->new( file => $path );
+    }
+    dmsg $app;
     if ( $ENV{DEBUG} || $self->debug ) {
         $builder->add_middleware('Debug');
         $builder->add_middleware('StackTrace');
@@ -73,6 +121,7 @@ ADJUST {
         'Auth::Basic',
         authenticator => sub ( $user, $pass, $env ) {
             foreach my ($dbuser) ( $self->userdb->@* ) {
+                dmsg $dbuser;
                 if ( $user eq $$dbuser{user}
                     && WWW::srvpath->valid_pass( $pass, $$dbuser{crypt} ) )
                 {
@@ -84,8 +133,21 @@ ADJUST {
     ) if scalar $self->userdb->@*;
 
     $builder->mount( $mount => $app->to_app );
+    $builder->mount(
+        '/run_config',
+        sub ($env) {
+            my $req = Plack::Request->new($env);
+            my $res = $req->new_response(200);
 
-}
+            $res->body( $self->json->encode( $self->config ) );
+            $res->content_type(
+                'application/json; charset=' . $self->config->{charset} . ';' );
+            $res->finalize;
+        }
+    );
+  }
+
+  #   method root
 
 __END__
 

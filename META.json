@@ -52,19 +52,21 @@
       },
       "runtime" : {
          "requires" : {
+            "Adjust::Params" : "0.01_06",
             "Const::Fast" : "0",
             "Crypt::Argon2" : "0",
             "Cwd" : "0",
             "File::ConfigDir" : "0",
-            "Frame" : "0",
-            "IO::Handle::Common" : "v0.1.1",
+            "File::HomeDir" : "0",
+            "Frame" : "0.01_08",
+            "IO::Handle::Common" : "0.01_08",
             "IO::Socket::SSL" : "0",
-            "IPC::Nosh" : "v0.1.4",
+            "IPC::Nosh" : "0.01_05",
             "JSON::MaybeXS" : "0",
             "MIME::Types" : "0",
             "Net::SSLeay" : "0",
             "Object::Pad" : "0",
-            "Path::Try" : "0",
+            "Path::Try" : "0.01_03",
             "Plack::App::Directory" : "0",
             "Plack::Builder" : "0",
             "Plack::MIME" : "0",
@@ -88,16 +90,16 @@
    "release_status" : "unstable",
    "resources" : {
       "bugtracker" : {
-         "web" : "https://github.com/marlencrabapple/WWW-srvdir/issues"
+         "web" : "https://github.com/marlencrabapple/WWW-srvpath/issues"
       },
-      "homepage" : "https://github.com/marlencrabapple/WWW-srvdir",
+      "homepage" : "https://github.com/marlencrabapple/WWW-srvpath",
       "repository" : {
          "type" : "git",
-         "url" : "https://github.com/marlencrabapple/WWW-srvdir.git",
-         "web" : "https://github.com/marlencrabapple/WWW-srvdir"
+         "url" : "https://github.com/marlencrabapple/WWW-srvpath.git",
+         "web" : "https://github.com/marlencrabapple/WWW-srvpath"
       }
    },
-   "version" : "0.01",
+   "version" : "0.01_01",
    "x_contributors" : [
       "Ian P Bradley <ian.bradley@studiocrabapple.com>"
    ],

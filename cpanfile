@@ -14,10 +14,11 @@ sub distname ($pkgname) {
 
 const our %pinned => (
     CRABAPP => {
-        'Path::Try'          => '0.01_2',
-        'IO::Handle::Common' => '0.01_3',
-        'IPC::Nosh'          => '0.01.4',
-        'Frame'              => '0.1.6.0'
+        'Adjust::Params' => '0.01_06',
+        'Path::Try'          => '0.01_03',
+        'IO::Handle::Common' => '0.01_08',
+        'IPC::Nosh'          => '0.01_05',
+        'Frame'              => '0.01_08'
     }
 );
 
@@ -28,44 +29,25 @@ foreach my ( $author, $modules ) (%pinned) {
     }
 }
 
-requires 'perl', 'v5.44';
 requires 'meta';
-
 requires 'Object::Pad';
 requires 'Const::Fast';
 requires 'Crypt::Argon2';
 requires 'Cwd';
+requires 'File::HomeDir';
 requires 'File::ConfigDir';
-
-# requires 'IO::Handle::Common', '0.01_3',
-# dist => "CRABAPP/IO-Handle-Common-0.01_3-TRIAL.tar.gz";
-
 requires 'IO::Socket::SSL';
-
-# requires 'IPC::Nosh', '0.01.4',
-# dist => "CRABAPP/IO-Nosh-0.01.4-TRIAL.tar.gz";
-
 requires 'Net::SSLeay';
-
-# requires 'Path::Try', '0.01_3';
-
 requires 'Plack::App::Directory';
 requires 'Plack::Builder';
 requires 'Plack::MIME';
 requires 'Plack::Runner';
 requires 'MIME::Types';
-
 requires 'Syntax::Keyword::Dynamically';
-
-# serialization
 requires 'TOML::Tiny';
 requires 'JSON::MaybeXS';
-
 requires 'Time::Moment';
 requires 'Time::Piece';
-
-# app server and interface with reverse proxy i.e. nginx
-#requires 'Frame';
 requires 'Starlet';
 requires 'Server::Starter';
 

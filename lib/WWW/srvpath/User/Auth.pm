@@ -4,7 +4,7 @@ package WWW::srvpath::User::Auth;
 
 role WWW::srvpath::User::Auth : does(WWW::srvpath::Base);
 
-use v5.44   ;
+use v5.44;
 use utf8;
 
 # use System::Info 'sysinfo_hash';
@@ -13,13 +13,12 @@ use Net::SSLeay;
 use Crypt::Argon2 qw'argon2_pass argon2_verify';
 use Const::Fast;
 use MIME::Base64 'encode_base64';
-use WWW::srvpath::Base;
 use IO::Handle::Common;
 
 use parent 'Exporter';
 use vars qw'@EXPORT @EXPORT_OK';
 
-@EXPORT_OK = qw'hashpass argon2_pass argon2_verify';
+@EXPORT = qw'hashpass valid_pass argon2_pass argon2_verify is_argon2';
 
 const our $ARGON2_RE => qr/^
     \$argon2(i|d|id)
@@ -47,6 +46,15 @@ field $t_cost   : param : reader = $ARGON2_DEFAULT{t_cost};
 field $m_factor : param : reader = $ARGON2_DEFAULT{m_factor};
 field $parallel : param : reader = $ARGON2_DEFAULT{parallel};
 field $tag_size : param : reader = $ARGON2_DEFAULT{tag_size};
+
+APPLY($class_mop) {
+
+    #$class_mop->name->apply($class_mop)
+};
+
+ADJUST : params (%param) {
+    $self->import;
+};
 
 sub hashpass (@opt) {
     my @argon2opt = ();
