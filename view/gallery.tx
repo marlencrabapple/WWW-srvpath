@@ -1,0 +1,19 @@
+: cascade "layout/main.tx"
+
+: override content -> {
+  <ul>
+  : for $media -> $media {
+    <li>
+      <a href="<: $media.url :>" title="<: $media.basename :>">
+        : if $media.type eq 'image' -> {
+        <img title="<: $media.basename :>" alt="<: $media.basename :>" src="<: $media.url :>"
+        : else $media.type eq 'video'
+        <video cover="$media.cover" source="" >
+        : else
+        : }
+      </a>
+    </li>
+
+  : }
+  </ul>
+:}

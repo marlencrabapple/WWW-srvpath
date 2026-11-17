@@ -4,9 +4,92 @@
 # =========================================================================
 
 use 5.008_001;
+
 use strict;
+use warnings;
+use utf8;
 
-use Module::Build::Tiny 0.035;
+use Module::Build;
+use File::Basename;
+use File::Spec;
 
-Build_PL();
+my %args = (
+    license              => 'perl_5',
+    dynamic_config       => 0,
+
+    configure_requires => {
+        'Module::Build' => '0.4005',
+    },
+
+    requires => {
+        'Adjust::Params' => '0.01_06',
+        'Const::Fast' => '0',
+        'Crypt::Argon2' => '0',
+        'Cwd' => '0',
+        'File::ConfigDir' => '0',
+        'File::HomeDir' => '0',
+        'Frame' => '0.01_08',
+        'IO::Handle::Common' => '0.01_08',
+        'IO::Socket::SSL' => '0',
+        'IPC::Nosh' => '0.01_05',
+        'JSON::MaybeXS' => '0',
+        'MIME::Types' => '0',
+        'Net::SSLeay' => '0',
+        'Object::Pad' => '0',
+        'Path::Try' => '0.01_03',
+        'Plack::App::Directory' => '0',
+        'Plack::Builder' => '0',
+        'Plack::MIME' => '0',
+        'Plack::Runner' => '0',
+        'Server::Starter' => '0',
+        'Starlet' => '0',
+        'Syntax::Keyword::Dynamically' => '0',
+        'TOML::Tiny' => '0',
+        'Time::Moment' => '0',
+        'Time::Piece' => '0',
+        'meta' => '0',
+        'perl' => 'v5.44.0',
+    },
+
+    recommends => {
+    },
+
+    suggests => {
+    },
+
+    build_requires => {
+    },
+
+    test_requires => {
+        'Test::More' => '0.98',
+    },
+
+    name            => 'WWW-srvpath',
+    module_name     => 'WWW::srvpath',
+    allow_pureperl => 0,
+
+    script_files => [glob('script/*'), glob('bin/*')],
+    PL_files => {},
+
+    test_files           => ((-d '.git' || $ENV{RELEASE_TESTING}) && -d 'xt') ? 't/ xt/' : 't/',
+    recursive_test_files => 1,
+
+
+);
+if (-d 'share') {
+    $args{share_dir} = 'share';
+}
+
+my $builder = Module::Build->subclass(
+    class => 'MyBuilder',
+    code => q{
+        sub ACTION_distmeta {
+            die "Do not run distmeta. Install Minilla and `minil install` instead.\n";
+        }
+        sub ACTION_installdeps {
+            die "Do not run installdeps. Run `cpanm --installdeps .` instead.\n";
+        }
+    }
+)->new(%args);
+$builder->create_build_script();
 

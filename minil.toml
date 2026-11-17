@@ -1,4 +1,6 @@
 name = "WWW-srvpath"
 #badges = ["github-actions/test.yml"]
-module_maker   = "ModuleBuildTiny"
+module_maker = "ModuleBuild"
 static_install = "auto"
+release_status = "unstable"
+authority = "cpan:CRABAPP"

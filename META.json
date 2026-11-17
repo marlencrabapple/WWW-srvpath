@@ -28,7 +28,7 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build::Tiny" : "0.035"
+            "Module::Build" : "0.4005"
          }
       },
       "develop" : {
@@ -100,6 +100,7 @@
       }
    },
    "version" : "0.01_02",
+   "x_authority" : "cpan:CRABAPP",
    "x_contributors" : [
       "Ian P Bradley <ian.bradley@studiocrabapple.com>"
    ],

@@ -80,7 +80,8 @@ method serve_path( $env, $path //= $root ) {
       if $path->parent;
 
     my $body =
-      $self->tx->render( 'dirindex.tx', { path => $path, file => \@file } );
+      $self->tx->render( 'dirindex.tx',
+        { path => $path, total => ( scalar @file - 1 ), file => \@file } );
 
     $res->body($body);
     $res->finalize;
