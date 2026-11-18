@@ -1175,7 +1175,7 @@ DISTRIBUTIONS
       IO::Async::SSL 0
       IO::Handle::Common 0.01_07
       IO::Socket::SSL 0
-      IPC::Nosh 0.01_04
+      IPC::Nosh 0.01_05
       JSON::MaybeXS 0
       List::Util 0
       MIME::Types 0

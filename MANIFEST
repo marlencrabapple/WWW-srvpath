@@ -28,6 +28,11 @@ script/pwhash
 script/srvpath
 share/perldoc-browser-runner
 share/perldoc-penny.psgi
+share/view/dirindex.tx
+share/view/gallery.tx
+share/view/layout/main.tx
+share/view/part/footer.tx
+share/view/part/header.tx
 srvdir.toml
 srvpath+7-bundle.pem
 srvpath+7-csr.pem
