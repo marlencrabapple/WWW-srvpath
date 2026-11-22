@@ -48,11 +48,11 @@ ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
         );
     }
 
-    foreach my $user ( $self->config->{userdb}->@* ) {
+    foreach my ( $i, $user ) ( builtin::indexed $self->config->{userdb}->@* ) {
         $user = $self->add_user( $$user{name},
             map { ( $_ => $$user{$_} ) } grep { $_ ne 'name' } keys %$user );
 
-        $self->config->{userdb} = $user;
+        $self->config->{userdb}[$i] = $user;
 
         # $self->config->write;
     }
@@ -65,7 +65,7 @@ ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
 *to_app = \&to_psgi;
 
 ADJUST : params (
-  : $index //= 1,
+  : $autoindex //= 1,
   : $path  //= './',
   : $root //= $path,
   : $mount //= '/',
@@ -75,27 +75,20 @@ ADJUST : params (
     $path = path( $path // $root );
 
     if ( $path->is_dir ) {
-        if ($index) {
-            if ( $index == 1 ) {
+        if ($autoindex) {
 
-                # $app = Plack::App::Directory->new( root => $root );
-                $app = WWW::srvpath::DirIndex->new(
-                    root   => $root,
-                    config => $self->config
-                );
-            }
-            else {
-                $app = Plack::App::File->new(
-                    root  => $path,
-                    mount => $mount,
-                    index => 1
-                );
-            }
+            # $app = Plack::App::Directory->new( root => $root );
+            $app = WWW::srvpath::DirIndex->new(
+                root   => $root,
+                config => $self->config
+            );
         }
         else {
-            $app = Plack::App::File->new( root => $path );
+            $app = Plack::App::File->new(
+                root  => $path,
+                mount => $mount,
+            );
         }
-
     }
     elsif ($cgi) {
         $app =
@@ -158,31 +151,9 @@ ADJUST : params (
         '/favicon.ico' =>
           Plack::App::File->new( file => './static/favicon.ico' )->to_app
     );
+  };
 
-    #  $r->get( '/s/:path' => StaticSrv->new( root => './static' )->to_route );
-    # $r->get(
-    #     '/s/bulma.min.css' => sub ( $c, @arg ) {
-    #         const my $static =>
-    #           StaticSrv->new( file => './inc/bulma/css/bulma.min.css' );
-
-    #         my $res = $c->req->new_response;
-    #         $res->status(200);
-    #         $res->body( $static->file->openr_raw );
-    #         $res;
-    #     }
-    # );
-
-    # $r->get(
-    #     'favicon.ico' => sub ( $c, @arg ) {
-    #         const my $static =>
-    #           StaticSrv->new( file => './static/favicon.ico' );
-
-    #         my $res = $c->req->new_response;
-    #         $res->status(200);
-    #         $res->body( $static->file->openr_raw );
-    #         $res;
-    #     }
-    # );
+ADJUST : params (%param) {
 
   }
 

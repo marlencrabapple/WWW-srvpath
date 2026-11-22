@@ -6,13 +6,13 @@ role WWW::srvpath::Config : does(WWW::srvpath::Base);
 use utf8;
 use v5.44;
 
-use TOML::Tiny;    #'from_toml';
 use Path::Tiny;
 use File::ConfigDir;
 use Const::Fast;
 use IO::Handle::Common;
 use WWW::srvpath::Base;
 use WWW::srvpath::Util;
+use List::Util qw'first uniq';
 
 method flatten : prototype($) : common ($optdef) {
     map {
@@ -140,32 +140,50 @@ const our %DEFAULT => default_options;
 const our @CONFIGDIR_DEFAULT =>
   ( path(File::ConfigDir::xdg_config_home)->absolute, path("./")->absolute, );
 
-field $toml = TOML::Tiny->new;
+method toml(%opt) {
+    state $toml //= TOML::Tiny->new( %opt, strict => 1 );
+    $toml;
+}
+
 field $file = [
-    grep { $_->is_file }
+
+    # grep { $_->is_file }
     map  { path("$_/srvpath.toml") }
     grep { $_ } @CONFIGDIR_DEFAULT
 ];
 field $data : reader = {};
 
-# Default configuration files. May warn on error but will fall back to minimal
-# inline config
 ADJUST {
-    $self->default_config;
+
 };
 
-# User provided/non-default config files. Fatal when path does not exist.
 ADJUST : params (:$config = []) {
+
+    # dmsg $self, $config;
+
+  # Default configuration files. May warn on error but will fall back to minimal
+  # inline config
+    $self->default_config;
+
+    # dmsg $self;
+
+    # User provided/non-default config files. Fatal when path does not exist.
     $self->load_config($_)
       for @$config;
+
+    # dmsg $self
 };
 
 method default_config () {
+
+    # dmsg $file;
     for my $path (@$file) {
         my $_config = $self->try_config( $path, dest => $data );
         if ( !$path->exists || refstr($_config) ne 'HASH' ) {
+            dmsg $path, $_config;
             if ( $path->parent eq $CONFIGDIR_DEFAULT[0] ) {
-                $$file[0]->spew_utf8( $toml->encode($data) );
+                dmsg $path, $data, $self->toml->encode($data);
+                $path->spew_utf8( $self->toml->encode($data) );
             }
         }
         $path = $_config;
@@ -176,26 +194,81 @@ method try_config ( $file, %opt ) {
     $self->load_config( $file, %opt, try => 1 );
 }
 
-method load_config ( $file, %opt ) {
-    my $path = path($file)->realpath;
+method load_config ( $in, %opt ) {
+    my $path = path($in)->absolute;
+
+    # dmsg $in, $path, \%opt;
 
     if ( !$path->exists ) {
         return undef if $opt{try};
-        fatal "Config file '$file' does not exist.";
+        fatal "Config file '$path' does not exist.";
     }
 
-    my $data_merge = $toml->decode( path($path)->slurp_utf8 );
-    $self->merge_config($data_merge);
+    my $data_merge = $self->toml->decode( $path->slurp_utf8 );
+    my $dest       = $self->merge_config($data_merge);
+    @$file = uniq @$file, $path;
+
+    # dmsg $file;
+    $dest;
+}
+
+method clear ( $key, $val, $src, $dst ) {
+
+    # dmsg $key, $val, $src, $dst;
+    if ( my $type = builtin::reftype($val) ) {
+        my ( $sigil, $name ) = sigil($val);
+        $val =
+            $type eq 'ARRAY' ? []
+          : $type eq 'HASH'  ? {}
+          :                    fatal "Cannot call reset on '$type' key '$key'";
+
+    }
+    else { $val = undef }
+
+}
+use subs 'reset';
+*reset = *clear;
+
+method default ( $key, $val, $src, $dst ) {
+
 }
 
 method merge_config ( $data_merge, $dest = $data ) {
+    const my @metaprefix => qw(clear reset default);
+
+    my $keyptn = join '|', keys %$data_merge, keys %$dest;
+    $keyptn = qr/$keyptn/;
+
     foreach my ( $key, $val ) ( $data_merge->%* ) {
+
+        # my $keyptn = join '|', keys %$data;
+        # $keyptn = qr/($keyptn)/;
+        # dmsg $key, $val, $keyptn, qr/^$_($keyptn)$/;
+
+        if (
+            my $subname =
+            first {
+
+                my $prefix = $_;
+                my $ptn    = qr/^$prefix\_$keyptn$/;
+
+                # dmsg $key, $ptn, ( $key =~ /^$prefix\_($keyptn)$/g );
+                $key =~ /^$prefix\_($keyptn)$/g
+            } @metaprefix
+          )
+        {
+            # dmsg $subname;
+            $self->$subname( $key, $val, $data_merge, $dest );
+        }
         if ( my $val_curr = $$dest{$key} ) {
             if (   ( !ref $val && !ref $val_curr )
                 || ( ref $val eq ref $val_curr ) )
             {
                 if ( ref $val eq 'ARRAY' ) {
-                    push @$val_curr, @$val;
+                    if ( scalar @$val ) {
+                        push @$val_curr, @$val;
+                    }
+                    else { @$val_curr = (); }
                 }
                 elsif ( ref $val eq 'HASH' ) {
 
@@ -209,13 +282,15 @@ method merge_config ( $data_merge, $dest = $data ) {
             }
             else {
                 fatal "Config key '$key' has type mismatch: current type is '"
-                  . ref $val_curr
+                  . reftype($val_curr)
                   . "' but new value has type '"
-                  . ref $val . "'";
+                  . reftype($val) . "'";
             }
         }
         else {
             $$dest{$key} = $val;
+
+            # if for $alias{$key}->@()
         }
     }
     $dest;
@@ -226,7 +301,6 @@ method config (%opt) {
 }
 
 const our $config_builtin_toml => <<'...';
-[global]
  charset = 'UTF-8'
  listen =':3223'
  enable-ssl = 1

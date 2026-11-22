@@ -9,6 +9,9 @@ class WWW::srvpath::DirIndex : isa(Plack::App::Directory) :
 use utf8;
 use v5.44;
 
+no warnings 'experimental::re_strict';
+no warnings 'experimental::signature_named_parameters';
+
 use Path::Tiny;
 use Plack::Request;
 use IO::Handle::Common;
@@ -16,7 +19,7 @@ use Unicode::UTF8 qw'decode_utf8 encode_utf8';
 use WWW::srvpath::Util;
 use Plack::MIME;
 
-field $root   : param //= ' . /';
+field $root   : param //= './';
 field $mount  : param //= '/';
 field $config : param;
 
@@ -40,7 +43,7 @@ method serve_path( $env, $path //= $root ) {
         my %childdata = ( path => $child, name => $basename );
 
         ( $childdata{uri} ) =
-          __CLASS__->path_uri_encode( $child->relative($path) );
+          '/' . __CLASS__->path_uri_encode( $child->relative($root) );
 
         if ( $child->is_file ) {
             my ( $noext, $ext ) =
@@ -55,7 +58,7 @@ method serve_path( $env, $path //= $root ) {
             $childdata{type} = Plack::MIME->mime_type(".$ext")
               if $ext;
         }
-        else { $childdata{uri} .= '/' }
+        elsif ( $child->is_dir ) { $childdata{$_} .= '/' for qw'url name' }
 
         try {
             $childdata{mtime} =
@@ -71,8 +74,9 @@ method serve_path( $env, $path //= $root ) {
 
     unshift @file,
       {
-        path => $path->parent // undef,
-        name => '../' . encode_utf8( $path->parent->basename ),
+        path => ( map { ( $path->parent->is_dir ? '/' : '' ) } $path->parent )
+          // undef,
+        name => '../' . encode_utf8( $path->parent->basename ) . '/',
         uri  =>
           ( __CLASS__->path_uri_encode( $path->parent->relative($path) ) )[0]
           // undef

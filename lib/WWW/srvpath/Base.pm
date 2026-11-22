@@ -6,9 +6,15 @@ role WWW::srvpath::Base : does(Adjust::Params);
 use utf8;
 use v5.40;
 
+no warnings 'experimental::re_strict';
+no warnings 'experimental::signature_named_parameters';
+
+use re 'strict';
+
 use meta;
 use PadWalker qw'peek_my var_name';
 use IO::Handle::Common;
+use Const::Fast;
 
 use parent 'Exporter';
 
@@ -19,7 +25,9 @@ use vars qw'@EXPORT  @EXPORT_OK';
 
 our @EXPORT_SUB    = @EXPORT_OK;
 our @EXPORT_COMMON = qw'';
+
 field $debug : reader = $ENV{DEBUG} || 1;
+
 APPLY($class_mop) {
     __PACKAGE__->apply($class_mop)
 };
@@ -88,4 +96,31 @@ sub callctx (@opt) {
         ...;
     }
     return @opt;
+}
+
+sub sigil ( $varref, : $up = 1, : $name, %opt ) {
+    $name //= var_name( $up + 1, $varref );
+    const my $sigil => qr/^[\$\@\%\&\*]{1}/;
+
+    # ( $name, ( $name =~ s/$sigil//rg ) );
+    ( $name =~ /($sigil)(.+)$/g );
+}
+
+method lexical : common ($up //= 1, @name) {
+    my %lexical;
+    foreach my ( $k, $v ) ( PadWalker::peek_my($up)->%* ) {
+
+        # /        dmsg( $k, $v );
+
+        my ( $sig, $name ) = ( sigil( $v, name => $k, up => $up ) );
+
+        # next if none { $name eq $_ } @name;
+        # #
+        # # dmsg $sig, $name, $v;
+        ( $lexical{$name} ) =
+          refstr($v) eq 'REF' ? ( eval qq'$sig\{\$v\}' ) : $v;
+
+        # dmsg $lexical{$name};
+    }
+    \%lexical;
 }

@@ -37,7 +37,7 @@
         <p class="level-item"><a class="button is-success">New</a></p>
       </div>
     </nav>
-    <ul class="smart-grid ">
+    <ul class="smart-grid content">
       <li class="grid is-col-min-4">
         <span class="has-text-weight-bold cell is-col-span-4">Filename</span>
         <span class="has-text-weight-bold cell is-col-span-1">Size</span>

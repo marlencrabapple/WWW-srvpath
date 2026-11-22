@@ -6,9 +6,6 @@ role WWW::srvpath::Util : does(WWW::srvpath::Base);
 use utf8;
 use v5.44;
 
-no warnings 'experimental::re_strict';
-use re 'strict';
-
 use Path::Try;
 use Const::Fast;
 use Time::HiRes;
@@ -20,20 +17,41 @@ use Net::Domain 'hostfqdn';
 use List::Util 'none';
 use Text::Xslate;
 use WWW::srvpath::Base;
-
+use TOML::Tiny;
 use Exporter;
 use parent 'Exporter';
 
+no warnings
+  qw'experimental::re_strict experimental::signature_named_parameters';
+
+no warnings 'experimental::re_strict';
+no warnings 'experimental::signature_named_parameters';
+
+use re 'strict';
+
 our @EXPORT_OK =
-  qw'path2uri epoch file_unique uri_escape uri_unescape uri_escape_utf8 escape_html path_uri_encode';
+  qw'tx path2uri epoch file_unique uri_escape uri_unescape uri_escape_utf8 escape_html path_uri_encode';
 our @EXPORT = @EXPORT_OK;
 
-field $tx   : reader = Text::Xslate->new( path => './view' );
-field $json : reader = JSON::MaybeXS->new;
+# field $tx   : reader = Text::Xslate->new( path => './view' );
+method tx {
+    state $tx //= Text::Xslate->new( path => './view' );
 
+    # dmsg builtin::refaddr($tx);
+    $tx;
+}
+
+# field $json : reader = JSON::MaybeXS->new;
+method json (%opt) {
+
+    # dmsg( ( callstack() )[0], $self );
+    state $json //= JSON::MaybeXS->new(%opt);
+    $json;
+
+}
 ADJUST {
-    $json->pretty(1) if $self->debug;
-    $json->utf8(1)   if $self->config->{charset} =~ /^utf-?8$/i;
+    $self->json->pretty(1) if $self->debug;
+    $self->json->utf8(1)   if $self->config->{charset} =~ /^utf-?8$/i;
 }
 
 sub epoch( $join = '', %opt ) {
@@ -90,14 +108,18 @@ sub file_unique(@in) {
 
 method path_uri_encode : common ( $path, %opt ) {
     my $return_joined;
-    $opt{join} //= "\n";
+    $opt{join} //= '/';
 
-    ( $path, $return_joined ) = [ split qr!/!, $path ]
-      unless refstr($path) eq 'ARRAY';
+    $path = $path->stringify if builtin::blessed($path);
+
+    if ( refstr($path) ne 'ARRAY' ) {
+        $path          = [ split qr!/!, $path ];
+        $return_joined = 1;
+    }
 
     my @pathencoded = (
         map {
-            $opt{charset} && $opt{charset} ne 'utf8'
+            $opt{charset} && $opt{charset} !~ /^utf-?8$/i
               ? uri_escape($_)
               : uri_escape_utf8($_)
         } @$path
@@ -200,5 +222,23 @@ sub path2uri ( $path_aref, %opt ) {
     }
 
     @out;
+}
+
+sub callstack ( $class = undef, : $startlvl = 1 ) {
+    my @callstack;
+    my $i = $startlvl // 1;
+
+    while ( my @caller = caller $i ) {
+        {
+            no strict 'refs';
+            push @caller, \%{"$caller[0]\::"};
+            push @caller, $caller[0]->META() if ${"$caller[0]\::"}{META}
+        }
+
+        push @callstack, \@caller;
+    }
+    continue { $i++ }
+
+    @callstack;
 }
 

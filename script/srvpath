@@ -133,7 +133,7 @@ method configure : common ( $argv //= \@ARGV ) {
                     use Data::Printer;
                     say STDERR
                       "Local root and URI mount path have already been set: ";
-                    p $cliopt{root}, $cliopt{map};
+                    dmsg $cliopt{root}, $cliopt{map};
 
                     say STDERR
 "Use only the 'root:mount' format as a value for --pathmap or as positional arguments to set multiple custom mappings.";
@@ -163,20 +163,23 @@ method configure : common ( $argv //= \@ARGV ) {
           keys %cliopt
     );
 
+    dmsg $srvpath;
+
     # Plack::Runner/plackup CLI
     # Remove options separator (not sure the change that made this necessary...)
     shift @$argv
       if refstr($argv) eq 'ARRAY' && $$argv[0] && $$argv[0] =~ /^--?$/;
 
-    my @sslcert_k = qw'certbundle certfile';
-    push @sslcert_k, map { my @w = /^(cert)[_-]?(.+)$/g; "ssl-$_" } @sslcert_k;
+   # my @sslcert_k = qw'certbundle certfile';
+   # push @sslcert_k, map { my @w = /^(cert)[_-]?(.+)$/g; "ssl-$_" } @sslcert_k;
 
-    foreach my $k (@sslcert_k) {
-        if ( my $v = $cliopt{$k} ) {
-            $cliopt{certfile} //= $v;
-            last;
-        }
-    }
+    # foreach my $k (@sslcert_k) {
+    #     if ( my $v = $cliopt{$k} ) {
+    #         $cliopt{certfile} //= $v;
+    #         last;
+    #     }
+    # }
+    # dmsg \%cliopt;
 
     # Pass through some commands to Plack::Runner for now
     push @$argv, (
@@ -184,17 +187,23 @@ method configure : common ( $argv //= \@ARGV ) {
         # Server
         '-s', $cliopt{server},
 
-# SSL
-# '--ssl',
-# '--ssl-server',
+        # SSL
+        '--ssl',
+        '--ssl-server',
+
 # '--ssl-cert-file',
-# map { path($_)->absolute } grep { $_ } (
-#     first { $_ } @cliopt{
+# (
+#     map  { $_->absolute }
+#     grep { $_ } first { $_ && path($_)->exists } @cliopt{
 #         qw'certbundle certfile cert-bundle cert-file ssl-certfile ssl-cert-file'
 #     }
 # ),
 # '--ssl-key-file',
-# path( @cliopt{qw'keyfile key-file ssl-keyfile ssl-keyfile'} )->absolute,
+# (
+#     map { $_->absolute } grep { $_ }
+#     first { $_ && path($_)->exists }
+#       @cliopt{qw'keyfile key-file ssl-keyfile ssl-keyfile'}
+# ),
 
         # ...
         map { ( '--listen', $_ ) } $cliopt{listen}->@*
