@@ -13,7 +13,7 @@ use Path::Try;
 use Getopt::Long qw(:config no_ignore_case bundling passthrough autoabbrev);
 use Const::Fast;
 use IO::Handle::Common;
-use List::Util 'first';
+use List::Util qw'first pairmap';
 use WWW::srvpath;
 
 # use WWW::srvpath::Base 'refstr';
@@ -163,50 +163,31 @@ method configure : common ( $argv //= \@ARGV ) {
           keys %cliopt
     );
 
-    dmsg $srvpath;
-
-    # Plack::Runner/plackup CLI
-    # Remove options separator (not sure the change that made this necessary...)
-    shift @$argv
-      if refstr($argv) eq 'ARRAY' && $$argv[0] && $$argv[0] =~ /^--?$/;
-
-   # my @sslcert_k = qw'certbundle certfile';
-   # push @sslcert_k, map { my @w = /^(cert)[_-]?(.+)$/g; "ssl-$_" } @sslcert_k;
-
-    # foreach my $k (@sslcert_k) {
-    #     if ( my $v = $cliopt{$k} ) {
-    #         $cliopt{certfile} //= $v;
-    #         last;
-    #     }
-    # }
-    # dmsg \%cliopt;
-
     # Pass through some commands to Plack::Runner for now
     push @$argv, (
 
-        # Server
-        '-s', $cliopt{server},
+        pairmap {
+            my @out = ();
 
-        # SSL
-        '--ssl',
-        '--ssl-server',
+            if ( my ($type) = ( refstr($b) =~ /^(ARRAY|HASH)$/ ) ) {
+                my ( $sig, $name ) = sigil( \$b );
+                if ( $type eq 'ARRAY' ) {
+                    @out = ( map { ( "--$a" => $_ ) } @$b );
+                }
+                elsif ( $type eq 'HASH' ) {
+                    foreach my ( $k, $v ) (%$b) {
+                        push @out, "--$a\-$k", $v;
+                    }
+                }
 
-# '--ssl-cert-file',
-# (
-#     map  { $_->absolute }
-#     grep { $_ } first { $_ && path($_)->exists } @cliopt{
-#         qw'certbundle certfile cert-bundle cert-file ssl-certfile ssl-cert-file'
-#     }
-# ),
-# '--ssl-key-file',
-# (
-#     map { $_->absolute } grep { $_ }
-#     first { $_ && path($_)->exists }
-#       @cliopt{qw'keyfile key-file ssl-keyfile ssl-keyfile'}
-# ),
+            }
+            else { @out = ( "--$a", $b ) }
+            @out;
+        }
 
-        # ...
-        map { ( '--listen', $_ ) } $cliopt{listen}->@*
+        $srvpath->config->%*,
+
+        # map { ( '--listen', $_ ) } $srvpath->config->{listen}->@*
     );
 
     $srvpath;
@@ -226,6 +207,7 @@ unless (caller) {
     require Plack::Runner;
 
     my $runner = Plack::Runner->new;
+    dmsg \@ARGV;
     $runner->parse_options(@ARGV);
 
     $runner->run($psgi);

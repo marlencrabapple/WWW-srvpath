@@ -18,9 +18,10 @@ use Const::Fast;
 
 use parent 'Exporter';
 
-use vars qw'@EXPORT  @EXPORT_OK';
+use vars            qw'@EXPORT  @EXPORT_OK';
+use Path::Try::Base qw($undef);
 
-@EXPORT    = qw(ARRAY array refstr dmsg fatal callctx);
+@EXPORT    = qw(sigil ARRAY array refstr dmsg fatal callctx);
 @EXPORT_OK = @EXPORT;
 
 our @EXPORT_SUB    = @EXPORT_OK;
@@ -98,7 +99,7 @@ sub callctx (@opt) {
     return @opt;
 }
 
-sub sigil ( $varref, : $up = 1, : $name, %opt ) {
+sub sigil ( $varref, : $up = 1, : $name = $undef, %opt ) {
     $name //= var_name( $up + 1, $varref );
     const my $sigil => qr/^[\$\@\%\&\*]{1}/;
 

@@ -20,7 +20,7 @@ method flatten : prototype($) : common ($optdef) {
             $_ => [
                 $_,
                 reftype( $$optdef{$_} ) eq 'ARRAY' ? $$optdef{$_}->@*
-                : reftype( $$optdef{$_} ) eq 'HASH'
+                : reftype( $$optdef{$_} ) e3q 'HASH'
                   && $$optdef{$_}->{alias}
                   && refstr( $$optdef{$_}->{alias} ) eq 'ARRAY'
                 ? $$optdef{$_}->{alias}->@*

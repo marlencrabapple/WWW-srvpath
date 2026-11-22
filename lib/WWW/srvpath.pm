@@ -37,6 +37,9 @@ field $builder = Plack::Builder->new;
 
 ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
     $param = \%param;
+
+    dmsg $self->merge_config( \%param );
+
     if ( all { $_ } ( $user, $pwhash ) ) {
         $self->add_user( $user, $pwhash );
     }
@@ -56,9 +59,9 @@ ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
 
         # $self->config->write;
     }
-  }
+};
 
-  method to_psgi {
+method to_psgi {
     $builder->to_app(@_);
 }
 
