@@ -16,37 +16,36 @@
             </strong> files</p>
         </div>
         <div class="level-item">
-          <div class="field has-addons">
+          <div class="field has-addons is-small">
             <p class="control">
-              <input class="input" type="text" placeholder="" />
+              <input class="input is-small" type="text" placeholder="" />
             </p>
             <p class="control">
-              <button class="button">Search</button>
+              <button class="button is-success is-small">Search</button>
             </p>
           </div>
         </div>
       </div>
 
       <!-- Right side -->
-      <div class="level-right">
-        Lorem Ipsum
-        <p class="level-item"><strong></strong></p>
-        <p class="level-item"><a>Modified</a></p>
-        <p class="level-item"><a>Accessed</a></p>
-        <p class="level-item"><a>Type</a></p>
-        <p class="level-item"><a class="button is-success">New</a></p>
+      <div class="level-right buttons are-small are-inverted are-outline">
+        <p class="level-item"><a class="button ">Download</a></p>
+        <p class="level-item"><a class="button ">Playlist</a></p>
+        <p class="level-item"><a class="button ">Export</a></p>
       </div>
     </nav>
     <ul class="smart-grid content">
       <li class="grid is-col-min-4">
-        <span class="has-text-weight-bold cell is-col-span-4">Filename</span>
+        <span class="has-text-weight-bold cell is-col-span-5">Filename      <span class="icon is-small">
+        <i class="fas fa-angle-up" aria-hidden="true"></i>
+      </span></span>
         <span class="has-text-weight-bold cell is-col-span-1">Size</span>
         <span class="has-text-weight-bold cell is-col-span-1">Type</span>
-        <span class="has-text-weight-bold cell">Last Modified</span>
+        <span class="has-text-weight-bold cell has-text-right">Last Modified</span>
       </li>
       :for $file -> $file {
-      <li class="grid is-col-min-4 ">
-        <span class="cell is-col-span-4">
+      <li class="grid is-col-min-4">
+        <span class="cell is-col-span-5">
           <a href="<: $file.uri :>">
             <: $file.name :>
           </a>
@@ -57,7 +56,7 @@
         <span class="cell is-col-span-1">
           <: $file.type :>
         </span>
-        <span class="cell">
+        <span class="cell has-text-right is-row-span-1">
           <: $file.mtime :>
         </span>
 

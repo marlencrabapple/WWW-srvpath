@@ -99,7 +99,7 @@
          "web" : "https://github.com/marlencrabapple/WWW-srvpath"
       }
    },
-   "version" : "0.01_02",
+   "version" : "0.01_03",
    "x_authority" : "cpan:CRABAPP",
    "x_contributors" : [
       "Ian P Bradley <ian.bradley@studiocrabapple.com>"

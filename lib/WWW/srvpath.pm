@@ -8,7 +8,7 @@ class WWW::srvpath : does(WWW::srvpath::Config) : does(WWW::srvpath::User) :
 use utf8;
 use v5.40;
 
-our $VERSION = "0.01_02";
+our $VERSION = "0.01_03";
 
 use builtin;
 use Path::Try;
@@ -29,6 +29,7 @@ Plack::MIME->set_fallback( sub { ( by_suffix $_[0] )[0] } );
 # field $mount                    //= '/';
 field $verbose : param //= false;
 
+
 # field $index                    //= false;
 field $param //= {};
 
@@ -38,7 +39,7 @@ field $builder = Plack::Builder->new;
 ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
     $param = \%param;
 
-    dmsg $self->merge_config( \%param );
+    $self->merge_config( \%param );
 
     if ( all { $_ } ( $user, $pwhash ) ) {
         $self->add_user( $user, $pwhash );
@@ -158,9 +159,9 @@ ADJUST : params (
 
 ADJUST : params (%param) {
 
-  }
+};
 
-  #   method root
+#   method root
 
 __END__
 

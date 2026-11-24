@@ -99,7 +99,7 @@ sub callctx (@opt) {
     return @opt;
 }
 
-sub sigil ( $varref, : $up = 1, : $name = $undef, %opt ) {
+sub sigil ( $varref, : $up = 1, : $name //= undef, %opt ) {
     $name //= var_name( $up + 1, $varref );
     const my $sigil => qr/^[\$\@\%\&\*]{1}/;
 

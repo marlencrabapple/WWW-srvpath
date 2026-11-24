@@ -10,10 +10,10 @@ use v5.44;
 
 use builtin;
 use Path::Try;
-use Getopt::Long qw(:config no_ignore_case bundling passthrough autoabbrev);
+use Getopt::Long qw(:config no_ignore_case pass_through autoabbrev);
 use Const::Fast;
 use IO::Handle::Common;
-use List::Util qw'first pairmap';
+use List::Util qw'first pairmap pairgrep';
 use WWW::srvpath;
 
 # use WWW::srvpath::Base 'refstr';
@@ -64,7 +64,7 @@ method GetOptionsFromArray : common {
 }
 
 method configure : common ( $argv //= \@ARGV ) {
-    my %cliopt = ( index => true );
+    my %cliopt = ( index => true, reset_config => false );
 
     const my %pos_dest => ( 0 => 'root', 1 => 'mount' );
 
@@ -112,7 +112,7 @@ method configure : common ( $argv //= \@ARGV ) {
   #     options may need to be handled in different forms
   #
   # current winnner: WWW::cgit object construction `ADJUST :params``
-
+        'reset-config|clear-config',
         'config|config-file|config-path:s@',
         'wrapcgi|exec',
 
@@ -126,13 +126,15 @@ method configure : common ( $argv //= \@ARGV ) {
         'mount|endpoint|urlbase|uribase:s',    # valid input:
             #- a single base uri path one or more local paths will be mounted in
         '<>' => sub ($barearg) {
+
             state $pos //= 0;
+            return if $barearg =~ /^-/;
+
             if ( my ( $root, $mount ) = ( $barearg =~ /^([^:]+):([.+])$/ ) ) {
 
                 if ($pos) {
-                    use Data::Printer;
-                    say STDERR
-                      "Local root and URI mount path have already been set: ";
+                    error
+                      "Local root and URI mount path have already been set. ";
                     dmsg $cliopt{root}, $cliopt{map};
 
                     say STDERR
@@ -147,7 +149,7 @@ method configure : common ( $argv //= \@ARGV ) {
 
                 error
                   "Positional arguments for 'root' and and 'mount' have already"
-                  . " been set.\n Ignoring '$barearg'."
+                  . " been set. Ignoring '$barearg'."
                   if $pos > 1;
 
                 $cliopt{ $pos_dest{$pos} } = $barearg;
@@ -159,9 +161,11 @@ method configure : common ( $argv //= \@ARGV ) {
     my $srvpath = WWW::srvpath->new(
 
         # Replace dashes with underscores for WWW::srvpath constructor
-        map { $_ =~ s/-/_/g; ( $_ => $cliopt{$_} ) }
+        map { my $k = $_ =~ s/-/_/rg; ( $k => $cliopt{$_} ) }
           keys %cliopt
     );
+
+    @$argv = grep { $_ && $_ ne '--' } @$argv;
 
     # Pass through some commands to Plack::Runner for now
     push @$argv, (
@@ -184,8 +188,10 @@ method configure : common ( $argv //= \@ARGV ) {
             else { @out = ( "--$a", $b ) }
             @out;
         }
-
-        $srvpath->config->%*,
+        pairgrep { $b }
+        $srvpath->config->%{
+            qw'listen ssl server socket app eval host port daemonize include plackenv reload no-default-middleware watch loader access-log path'
+        }
 
         # map { ( '--listen', $_ ) } $srvpath->config->{listen}->@*
     );
@@ -207,6 +213,7 @@ unless (caller) {
     require Plack::Runner;
 
     my $runner = Plack::Runner->new;
+
     dmsg \@ARGV;
     $runner->parse_options(@ARGV);
 

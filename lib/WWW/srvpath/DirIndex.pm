@@ -12,6 +12,7 @@ use v5.44;
 no warnings 'experimental::re_strict';
 no warnings 'experimental::signature_named_parameters';
 
+use builtin;
 use Path::Tiny;
 use Plack::Request;
 use IO::Handle::Common;
@@ -23,7 +24,10 @@ field $root   : param //= './';
 field $mount  : param //= '/';
 field $config : param;
 
-ADJUST : params (%param) { $root = path($root)->absolute if $param{root} };
+ADJUST : params (%param) {
+    $root = path($root)->absolute
+      unless builtin::blessed($root) && $root->isa('Path::Tiny')
+};
 
 method config { $config }
 
@@ -31,8 +35,11 @@ method serve_path( $env, $path //= $root ) {
     my $req = Plack::Request->new($env);
     my $res = $req->new_response(200);
     my @file;
+    $path = path($path)->absolute($root);
 
-    $path = path($path)->absolute;
+    return $self->render_403
+      unless $root->realpath->subsumes( $path->realpath );
+
     if ( !$path->is_dir ) {
         return Plack::App::File->serve_path( $env, $path );
     }
@@ -72,16 +79,25 @@ method serve_path( $env, $path //= $root ) {
         push @file, \%childdata;
     }
 
-    unshift @file,
-      {
-        path => ( map { ( $path->parent->is_dir ? '/' : '' ) } $path->parent )
-          // undef,
-        name => '../' . encode_utf8( $path->parent->basename ) . '/',
-        uri  =>
-          ( __CLASS__->path_uri_encode( $path->parent->relative($path) ) )[0]
-          // undef
-      }
-      if $path->parent;
+    if ( my $up = $path->parent ) {
+        dmsg $path, $up, $up->basename, $up->relative($path);
+
+        unshift @file,
+          {
+            path => $up,
+            name => '../'
+              . ( $up->basename ? encode_utf8( $up->basename ) . '/' : '' ),
+            uri => (
+                '/'
+                  . (
+                    join '/', __CLASS__->path_uri_encode( $up->relative($root) )
+                  )
+            ) // undef
+          };
+
+    }
+
+    #      if $path->parent;
 
     my $body =
       $self->tx->render( 'dirindex.tx',

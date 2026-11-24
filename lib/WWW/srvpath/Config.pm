@@ -14,13 +14,16 @@ use WWW::srvpath::Base;
 use WWW::srvpath::Util;
 use List::Util qw'first uniq';
 
+# field $reset_config : accessor : param //= 0;
+field $reset_config : accessor : param //= 0;
+
 method flatten : prototype($) : common ($optdef) {
     map {
         (
             $_ => [
                 $_,
                 reftype( $$optdef{$_} ) eq 'ARRAY' ? $$optdef{$_}->@*
-                : reftype( $$optdef{$_} ) e3q 'HASH'
+                : reftype( $$optdef{$_} ) eq 'HASH'
                   && $$optdef{$_}->{alias}
                   && refstr( $$optdef{$_}->{alias} ) eq 'ARRAY'
                 ? $$optdef{$_}->{alias}->@*
@@ -153,17 +156,13 @@ field $file = [
 ];
 field $data : reader = {};
 
-ADJUST {
-
-};
-
 ADJUST : params (:$config = []) {
 
-    # dmsg $self, $config;
+    dmsg $self, [ $self->reset_config ], $config;
 
   # Default configuration files. May warn on error but will fall back to minimal
   # inline config
-    $self->default_config;
+    $self->default_config unless $self->reset_config;
 
     # dmsg $self;
 
@@ -174,10 +173,12 @@ ADJUST : params (:$config = []) {
     # dmsg $self
 };
 
-method default_config () {
+method default_config {
 
     # dmsg $file;
     for my $path (@$file) {
+
+        # dmsg $path, $reset_config;
         my $_config = $self->try_config( $path, dest => $data );
         if ( !$path->exists || refstr($_config) ne 'HASH' ) {
             dmsg $path, $_config;
@@ -217,6 +218,8 @@ method clear ( $key, $val, $src, $dst ) {
     # dmsg $key, $val, $src, $dst;
     if ( my $type = builtin::reftype($val) ) {
         my ( $sigil, $name ) = sigil($val);
+        dmsg $sigil, $name, $type;
+        eval "$sigil\$name = ()";
         $val =
             $type eq 'ARRAY' ? []
           : $type eq 'HASH'  ? {}

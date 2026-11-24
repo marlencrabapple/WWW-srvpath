@@ -31,7 +31,6 @@ foreach my ( $author, $modules ) (%pinned) {
 
 requires 'meta';
 requires 'Object::Pad';
-requires 'Const::Fast';
 requires 'Crypt::Argon2';
 requires 'Cwd';
 requires 'File::HomeDir';
