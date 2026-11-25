@@ -41,11 +41,10 @@ method serve_path( $env, $path //= $root ) {
       unless $root->realpath->subsumes( $path->realpath );
 
     if ( !$path->is_dir ) {
-        return Plack::App::File->serve_path( $env, $path );
+        return WWW::srvpath::Static::File->serve_path( $env, $path );
     }
 
     foreach my $child ( $path->children ) {
-
         my $basename  = encode_utf8( $child->basename );
         my %childdata = ( path => $child, name => $basename );
 
@@ -94,16 +93,15 @@ method serve_path( $env, $path //= $root ) {
                   )
             ) // undef
           };
-
     }
-
-    #      if $path->parent;
 
     my $body =
       $self->tx->render( 'dirindex.tx',
         { path => $path, total => ( scalar @file - 1 ), file => \@file } );
 
     $res->body($body);
+    $res->content_type(
+        'text/html; charset=' . $self->config->{charset} . ';' );
     $res->finalize;
 }
 

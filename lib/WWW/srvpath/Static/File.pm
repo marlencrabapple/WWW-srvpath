@@ -6,12 +6,16 @@ class WWW::srvpath::Static::File : isa(Plack::App::File) : does(Adjust::Params);
 use utf8;
 use v5.44;
 
+use builtin;
 use Path::Tiny;
 use IO::Handle::Common;
+use Sublike::Extended;
+use Plack::Request;
+use Plack::Response;
 
-field $req;
-field $root;
-field $file;
+field $root  : param : reader //= './';
+field $file  : param : reader;
+field $mount : param : reader;
 
 ADJUST : params (%param) {
     $self->adjust_params(
@@ -23,11 +27,38 @@ ADJUST : params (%param) {
     );
 };
 
-method get_path ($path) {
-    fatal "Request field is not an instance of Plack::Request"
-      unless blessed($req) && $req->isa('Plack::Request');
+method serve : common ($path, $root = './', %param) {
+    my $self = $class->new( root => $root, file => $path );
+    $self->get_path(%param);
+}
 
-    my $res = $req->new_response;
+extended method get_path (
+    $path //= $self->file,
+    $root //= $self->root,
+    : $env = undef,
+    : $req = undef,
+    : $res = undef
+  )
+{
+    if ( $req || $env ) {
+        if ($req) {
+            fatal "Request field is not an instance of Plack::Request"
+              unless builtin::blessed($req) && $req->isa('Plack::Request');
+        }
+        elsif ($env) {
+            $req = Plack::Request->new($env);
+
+        }
+        $res //= $req->new_response;
+    }
+    else {
+        $res //= Plack::Response->new(200);
+    }
+
+    return $self->render_403
+      unless $root->realpath->subsumes( $path->realpath );
+
+    # $path = $path->relative($root);
 
     if ( $path->is_file ) {
         $res->status(200);
@@ -41,43 +72,16 @@ method get_path ($path) {
     $res;
 }
 
-method map_path ($path_info) {
-    if ($root) {
-        if (
-            my ($rel) =
-            $path_info eq '/'
-            ? '/'
-            : ( $path_info =~ /^\/(.*)$/g )
-          )
-        {
-            my $path =
-              path( ( $rel =~ /\/$/g ? 'index.html' : $rel ) )->relative($root);
-
-            my $res = $self->get_path($path);
-            dmsg $rel, $path, $res;
-            return $res;
-        }
-    }
-    else {
-        return $self->get_path( $file->absolute ) if $file;
-    }
-}
-
-method to_route {
-
+method to_app {
     sub ( $c, $path //= $c->req->path_info, @arg ) {
-
-        # dmsg $c->req->env, $path, \@arg;
-        $req = $c->req;
-        $self->get_path( $self->map_path($path) );
-
-        # $self->call( $c->env, @arg );
+        my $req = $c->req;
+        $self->get_path($path);
     }
 }
+
+# *to_route = *to_app;
 
 method call ( $env, @arg ) {
-    $req = Plack::Request->new($env);
-    $self->get_path( $self->map_path( $req->path_info ) );
-
-    # Plack::App::File::call( $self, $env, @arg );
+    my $req = Plack::Request->new($env);
+    $self->get_path( $req->path_info, req => $req );
 }

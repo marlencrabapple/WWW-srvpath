@@ -14,7 +14,6 @@ use WWW::srvpath::Base;
 use WWW::srvpath::Util;
 use List::Util qw'first uniq';
 
-# field $reset_config : accessor : param //= 0;
 field $reset_config : accessor : param //= 0;
 
 method flatten : prototype($) : common ($optdef) {
@@ -264,9 +263,7 @@ method merge_config ( $data_merge, $dest = $data ) {
             $self->$subname( $key, $val, $data_merge, $dest );
         }
         if ( my $val_curr = $$dest{$key} ) {
-            if (   ( !ref $val && !ref $val_curr )
-                || ( ref $val eq ref $val_curr ) )
-            {
+            if ( refstr($val) eq refstr($val_curr) ) {
                 if ( ref $val eq 'ARRAY' ) {
                     if ( scalar @$val ) {
                         push @$val_curr, @$val;
@@ -279,8 +276,9 @@ method merge_config ( $data_merge, $dest = $data ) {
                     $self->merge_config( $val, $val_curr );
                 }
                 else {
-                    # $$dest{$key} = $val;
-                    $val_curr = $val;
+                    $$dest{$key} = $val;
+
+                    # $val_curr = $val;
                 }
             }
             else {

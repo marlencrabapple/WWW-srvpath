@@ -125,6 +125,8 @@ method configure : common ( $argv //= \@ARGV ) {
 
         'mount|endpoint|urlbase|uribase:s',    # valid input:
             #- a single base uri path one or more local paths will be mounted in
+
+        'middleware=s@',
         '<>' => sub ($barearg) {
 
             state $pos //= 0;
@@ -195,7 +197,7 @@ method configure : common ( $argv //= \@ARGV ) {
 
         # map { ( '--listen', $_ ) } $srvpath->config->{listen}->@*
     );
-
+    dmsg $srvpath;
     $srvpath;
 }
 
@@ -218,7 +220,8 @@ unless (caller) {
     $runner->parse_options(@ARGV);
 
     $runner->run($psgi);
-    $psgi->runner($runner);
+
+    # $psgi->runner($runner);
 
     error "$! ($?)" if $? > 0;
     exit $?;

@@ -8,33 +8,40 @@ class WWW::srvpath : does(WWW::srvpath::Config) : does(WWW::srvpath::User) :
 use utf8;
 use v5.40;
 
-our $VERSION = "0.01_03";
+our $VERSION = "0.01_04";
 
 use builtin;
-use Path::Try;
-use List::Util 'all';
-use MIME::Types 'by_suffix';
+
+use Path::Tiny;
 use Plack::Builder;
-use Plack::App::Directory;
-use Plack::MIME;
 use List::Util qw'pairmap first all';
 use IO::Handle::Common;
 use WWW::srvpath::DirIndex;
+use WWW::srvpath::Static::File;
 
 use subs qw'on_psgi to_app';
 
-Plack::MIME->set_fallback( sub { ( by_suffix $_[0] )[0] } );
-
-# field $path                     //= '.';
-# field $mount                    //= '/';
+field $middleware = [];
+field $run_config : param = 0;
 field $verbose : param //= false;
-
-
-# field $index                    //= false;
 field $param //= {};
-
 field $app;
 field $builder = Plack::Builder->new;
+
+ADJUST : params (:$middleware //= []) {
+    foreach my $mw (@$middleware) {
+        my ( $pkg, $optstr ) = ( $mw =~ /^([a-z0-9:_]+)(?:=(.+))?$/ig );
+
+        my %opt;
+
+        foreach my $opt ( split /,/, $optstr ) {
+            my ( $name, $val ) = ( $opt =~ // );
+            $opt{$name} = $val // 1;
+        }
+
+        $builder->add_middleware( $pkg, %opt );
+    }
+};
 
 ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
     $param = \%param;
@@ -57,8 +64,6 @@ ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
             map { ( $_ => $$user{$_} ) } grep { $_ ne 'name' } keys %$user );
 
         $self->config->{userdb}[$i] = $user;
-
-        # $self->config->write;
     }
 };
 
@@ -80,8 +85,6 @@ ADJUST : params (
 
     if ( $path->is_dir ) {
         if ($autoindex) {
-
-            # $app = Plack::App::Directory->new( root => $root );
             $app = WWW::srvpath::DirIndex->new(
                 root   => $root,
                 config => $self->config
@@ -89,7 +92,7 @@ ADJUST : params (
         }
         else {
             $app = Plack::App::File->new(
-                root  => $path,
+                file  => $path,
                 mount => $mount,
             );
         }
@@ -102,45 +105,21 @@ ADJUST : params (
         $app = Plack::App::File->new( file => $path );
     }
 
-    if ( $ENV{DEBUG} || $self->debug ) {
-        $builder->add_middleware('Debug');
-        $builder->add_middleware('StackTrace');
-    }
+    if ($run_config) {
+        $builder->mount(
+            '/run_config',
+            sub ($env) {
+                my $req = Plack::Request->new($env);
+                my $res = $req->new_response(200);
 
-    $builder->add_middleware_if(
-        sub ($env) { !$env->{REMOTE_ADDR} },
-        "Plack::Middleware::ReverseProxy"
-    );
-
-    $builder->add_middleware(
-        'Auth::Basic',
-        authenticator => sub ( $user, $pass, $env ) {
-            foreach my ($dbuser) ( $self->userdb->@* ) {
-
-                # dmsg $dbuser;
-                if ( $user eq $$dbuser{user}
-                    && WWW::srvpath->valid_pass( $pass, $$dbuser{crypt} ) )
-                {
-                    return 1;
-                }
+                $res->body( $self->json->encode( $self->config ) );
+                $res->content_type( 'application/json; charset='
+                      . $self->config->{charset}
+                      . ';' );
+                $res->finalize;
             }
-            return undef;
-        }
-    ) if scalar $self->userdb->@*;
-
-    $builder->mount( $mount => $app->to_app );
-    $builder->mount(
-        '/run_config',
-        sub ($env) {
-            my $req = Plack::Request->new($env);
-            my $res = $req->new_response(200);
-
-            $res->body( $self->json->encode( $self->config ) );
-            $res->content_type(
-                'application/json; charset=' . $self->config->{charset} . ';' );
-            $res->finalize;
-        }
-    );
+        );
+    }
 
     $builder->mount(
         '/s' => Plack::App::File->new( root => './static' )->to_app
@@ -155,13 +134,42 @@ ADJUST : params (
         '/favicon.ico' =>
           Plack::App::File->new( file => './static/favicon.ico' )->to_app
     );
+
+    $builder->mount( $mount => $app->to_app );
+    $self->default_middleware;
+
+    dmsg $self;
   };
 
-ADJUST : params (%param) {
+method add_middleware ( $name, @arg ) {
+    push @$middleware, $builder->add_middleware( $name, @arg );
+}
 
-};
+method default_middleware {
+    if ( $ENV{DEBUG} || $self->debug ) {
+        $builder->add_middleware('Debug');
+        $builder->add_middleware('StackTrace');
+    }
 
-#   method root
+    $builder->add_middleware_if(
+        sub ($env) { !$env->{REMOTE_ADDR} },
+        "Plack::Middleware::ReverseProxy"
+    );
+
+    $builder->add_middleware(
+        'Auth::Basic',
+        authenticator => sub ( $user, $pass, $env ) {
+            foreach my ($dbuser) ( $self->userdb->@* ) {
+                if ( $user eq $$dbuser{user}
+                    && WWW::srvpath->valid_pass( $pass, $$dbuser{crypt} ) )
+                {
+                    return 1;
+                }
+            }
+            return undef;
+        }
+    ) if scalar $self->userdb->@*;
+}
 
 __END__
 
