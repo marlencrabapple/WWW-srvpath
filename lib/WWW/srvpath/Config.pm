@@ -157,32 +157,26 @@ field $data : reader = {};
 
 ADJUST : params (:$config = []) {
 
-    dmsg $self, [ $self->reset_config ], $config;
+    # dmsg $self, [ $self->reset_config ], $config;
 
   # Default configuration files. May warn on error but will fall back to minimal
   # inline config
     $self->default_config unless $self->reset_config;
 
-    # dmsg $self;
-
     # User provided/non-default config files. Fatal when path does not exist.
     $self->load_config($_)
       for @$config;
-
-    # dmsg $self
 };
 
 method default_config {
-
-    # dmsg $file;
     for my $path (@$file) {
-
-        # dmsg $path, $reset_config;
         my $_config = $self->try_config( $path, dest => $data );
         if ( !$path->exists || refstr($_config) ne 'HASH' ) {
-            dmsg $path, $_config;
+
+            # dmsg $path, $_config;
             if ( $path->parent eq $CONFIGDIR_DEFAULT[0] ) {
-                dmsg $path, $data, $self->toml->encode($data);
+
+                # dmsg $path, $data, $self->toml->encode($data);
                 $path->spew_utf8( $self->toml->encode($data) );
             }
         }
@@ -197,8 +191,6 @@ method try_config ( $file, %opt ) {
 method load_config ( $in, %opt ) {
     my $path = path($in)->absolute;
 
-    # dmsg $in, $path, \%opt;
-
     if ( !$path->exists ) {
         return undef if $opt{try};
         fatal "Config file '$path' does not exist.";
@@ -208,15 +200,14 @@ method load_config ( $in, %opt ) {
     my $dest       = $self->merge_config($data_merge);
     @$file = uniq @$file, $path;
 
-    # dmsg $file;
     $dest;
 }
 
-method clear ( $key, $val, $src, $dst ) {
+method unset ( $key, $val, $src, $dst ) {
 
-    # dmsg $key, $val, $src, $dst;
+    dmsg $key, $val, $src, $dst;
     if ( my $type = builtin::reftype($val) ) {
-        my ( $sigil, $name ) = sigil($val);
+        my ( $sigil, $name ) = sigil( \$val );
         dmsg $sigil, $name, $type;
         eval "$sigil\$name = ()";
         $val =
@@ -228,14 +219,19 @@ method clear ( $key, $val, $src, $dst ) {
     else { $val = undef }
 
 }
-use subs 'reset';
-*reset = *clear;
+method reset { $self->unset(@_) }
+
+method clear { $self->unset(@_) }
+
+# use subs qw'reset clear';
+# *reset = *unset;
+# *clear = *unset;
 
 method default ( $key, $val, $src, $dst ) {
 
 }
 
-method merge_config ( $data_merge, $dest = $data ) {
+method merge_config ( $data_merge, $dest //= $data ) {
     const my @metaprefix => qw(clear reset default);
 
     my $keyptn = join '|', keys %$data_merge, keys %$dest;

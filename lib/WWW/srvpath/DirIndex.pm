@@ -2,8 +2,7 @@ use Object::Pad ':experimental(:all)';
 
 package WWW::srvpath::DirIndex;
 
-class WWW::srvpath::DirIndex : isa(Plack::App::Directory) :
-  does(WWW::srvpath::Util)
+class WWW::srvpath::DirIndex : does(WWW::srvpath::Util)
   : does(WWW::srvpath::Base);
 
 use utf8;
@@ -17,16 +16,23 @@ use Path::Tiny;
 use Plack::Request;
 use IO::Handle::Common;
 use Unicode::UTF8 qw'decode_utf8 encode_utf8';
-use WWW::srvpath::Util;
 use Plack::MIME;
+use WWW::srvpath::Static::File;
 
-field $root   : param //= './';
-field $mount  : param //= '/';
-field $config : param;
+field $root   : param : reader //= './';
+field $mount  : param : reader //= '/';
+field $config : param //= { charset => 'UTF-8' };
+field $param;
 
 ADJUST : params (%param) {
-    $root = path($root)->absolute
-      unless builtin::blessed($root) && $root->isa('Path::Tiny')
+    $param = \%param;
+    $root =
+      builtin::blessed($root)
+      && $root->isa('Path::Tiny')
+    ? $root
+    : path($root)->absolute;
+
+    dmsg($self);
 };
 
 method config { $config }
@@ -35,13 +41,18 @@ method serve_path( $env, $path //= $root ) {
     my $req = Plack::Request->new($env);
     my $res = $req->new_response(200);
     my @file;
+
     $path = path($path)->absolute($root);
 
-    return $self->render_403
-      unless $root->realpath->subsumes( $path->realpath );
+    # dmsg $path;
+
+    # return $self->render_403
+    #   unless $root->realpath->subsumes( $path->realpath );
 
     if ( !$path->is_dir ) {
-        return WWW::srvpath::Static::File->serve_path( $env, $path );
+
+        return WWW::srvpath::Static::File->new( file => $path, mount => $path )
+          ->to_res($req);
     }
 
     foreach my $child ( $path->children ) {
@@ -102,6 +113,13 @@ method serve_path( $env, $path //= $root ) {
     $res->body($body);
     $res->content_type(
         'text/html; charset=' . $self->config->{charset} . ';' );
+
     $res->finalize;
 }
 
+method to_app {
+    sub ($env) {
+        dmsg $self, $$env{PATH_INFO};
+        $self->serve_path( $env, $$env{PATH_INFO} );
+    }
+}

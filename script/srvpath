@@ -116,36 +116,19 @@ method configure : common ( $argv //= \@ARGV ) {
         'config|config-file|config-path:s@',
         'wrapcgi|exec',
 
-        'path|srvpath|root|public|www:s@',    # valid input:
-            #- list of root paths, mounted as basename in value of mount
-
-        'pathmap|rootmount|srcdest|srvpaths:s@',    # valid input:
-            #- list of root paths, mounted as basename in value of mount
-            # - list of colon separated root:mout pairs
+        'path|srvpath|root|public|www:s',
 
         'mount|endpoint|urlbase|uribase:s',    # valid input:
             #- a single base uri path one or more local paths will be mounted in
 
         'middleware=s@',
+        'run-config!',
         '<>' => sub ($barearg) {
-
             state $pos //= 0;
-            return if $barearg =~ /^-/;
 
-            if ( my ( $root, $mount ) = ( $barearg =~ /^([^:]+):([.+])$/ ) ) {
-
-                if ($pos) {
-                    error
-                      "Local root and URI mount path have already been set. ";
-                    dmsg $cliopt{root}, $cliopt{map};
-
-                    say STDERR
-"Use only the 'root:mount' format as a value for --pathmap or as positional arguments to set multiple custom mappings.";
-
-                    return;
-                }
-
-                push $cliopt{pathmap}->@*, { root => $root, mount => $mount };
+            if ( $barearg =~ /^--((un|re)set|clear)-.+/ ) {
+                $cliopt{ ( $barearg =~ s/^--?//rg =~ s/-/_/rg ) } = true;
+                return;
             }
             else {
 
@@ -161,43 +144,39 @@ method configure : common ( $argv //= \@ARGV ) {
     );
 
     my $srvpath = WWW::srvpath->new(
-
-        # Replace dashes with underscores for WWW::srvpath constructor
-        map { my $k = $_ =~ s/-/_/rg; ( $k => $cliopt{$_} ) }
-          keys %cliopt
+        (
+            map { my ($k) = ( $_ =~ s/-/_/rg ); ( $k => $cliopt{$_} ) }
+              keys %cliopt
+        ),
     );
 
     @$argv = grep { $_ && $_ ne '--' } @$argv;
 
     # Pass through some commands to Plack::Runner for now
-    push @$argv, (
+    push @$argv, pairmap {
+        my @out = ();
 
-        pairmap {
-            my @out = ();
-
-            if ( my ($type) = ( refstr($b) =~ /^(ARRAY|HASH)$/ ) ) {
-                my ( $sig, $name ) = sigil( \$b );
-                if ( $type eq 'ARRAY' ) {
-                    @out = ( map { ( "--$a" => $_ ) } @$b );
-                }
-                elsif ( $type eq 'HASH' ) {
-                    foreach my ( $k, $v ) (%$b) {
-                        push @out, "--$a\-$k", $v;
-                    }
-                }
-
+        if ( my ($type) = ( refstr($b) =~ /^(ARRAY|HASH)$/ ) ) {
+            my ( $sig, $name ) = sigil( \$b );
+            if ( $type eq 'ARRAY' ) {
+                @out = ( map { ( "--$a" => $_ ) } @$b );
             }
-            else { @out = ( "--$a", $b ) }
-            @out;
-        }
-        pairgrep { $b }
-        $srvpath->config->%{
-            qw'listen ssl server socket app eval host port daemonize include plackenv reload no-default-middleware watch loader access-log path'
-        }
+            elsif ( $type eq 'HASH' ) {
+                foreach my ( $k, $v ) (%$b) {
+                    push @out, "--$a\-$k", $v;
+                }
+            }
 
-        # map { ( '--listen', $_ ) } $srvpath->config->{listen}->@*
-    );
-    dmsg $srvpath;
+        }
+        else { @out = ( "--$a", $b ) }
+        @out;
+    }
+    pairgrep { $b }
+    $srvpath->config->%{
+        qw'listen ssl server socket app eval host port daemonize include plackenv reload no-default-middleware watch loader access-log path'
+    };
+
+    # dmsg $srvpath;
     $srvpath;
 }
 
@@ -216,12 +195,12 @@ unless (caller) {
 
     my $runner = Plack::Runner->new;
 
-    dmsg \@ARGV;
+    # dmsg \@ARGV;
     $runner->parse_options(@ARGV);
 
     $runner->run($psgi);
 
-    # $psgi->runner($runner);
+    $psgi->runner($runner);
 
     error "$! ($?)" if $? > 0;
     exit $?;

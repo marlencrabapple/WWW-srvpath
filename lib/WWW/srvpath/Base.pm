@@ -1,7 +1,7 @@
 use Object::Pad ':experimental(:all)';
 
 package WWW::srvpath::Base;
-role WWW::srvpath::Base : does(Adjust::Params);
+role WWW::srvpath::Base;
 
 use utf8;
 use v5.40;
@@ -18,8 +18,9 @@ use Const::Fast;
 
 use parent 'Exporter';
 
-use vars            qw'@EXPORT  @EXPORT_OK';
-use Path::Try::Base qw($undef);
+use vars qw'@EXPORT @EXPORT_OK';
+
+# use Path::Try::Base qw($undef);
 
 @EXPORT    = qw(sigil ARRAY array refstr dmsg fatal callctx);
 @EXPORT_OK = @EXPORT;

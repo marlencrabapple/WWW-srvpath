@@ -16,16 +16,12 @@ use URI::Escape;
 use Net::Domain 'hostfqdn';
 use List::Util 'none';
 use Text::Xslate;
-use WWW::srvpath::Base;
 use TOML::Tiny;
 use Exporter;
 use parent 'Exporter';
 
 no warnings
   qw'experimental::re_strict experimental::signature_named_parameters';
-
-no warnings 'experimental::re_strict';
-no warnings 'experimental::signature_named_parameters';
 
 use re 'strict';
 
@@ -112,7 +108,7 @@ method path_uri_encode : common ( $path, %opt ) {
 
     $path = $path->stringify if builtin::blessed($path);
 
-    if ( refstr($path) ne 'ARRAY' ) {
+    if ( WWW::srvpath::Base::refstr($path) ne 'ARRAY' ) {
         $path          = [ split qr!/!, $path ];
         $return_joined = 1;
     }

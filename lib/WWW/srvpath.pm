@@ -16,37 +16,26 @@ use Path::Tiny;
 use Plack::Builder;
 use List::Util qw'pairmap first all';
 use IO::Handle::Common;
+
+use Plack::App::File;
+
 use WWW::srvpath::DirIndex;
 use WWW::srvpath::Static::File;
 
 use subs qw'on_psgi to_app';
 
+field $runner : accessor;
 field $middleware = [];
 field $run_config : param = 0;
-field $verbose : param //= false;
-field $param //= {};
-field $app;
-field $builder = Plack::Builder->new;
-
-ADJUST : params (:$middleware //= []) {
-    foreach my $mw (@$middleware) {
-        my ( $pkg, $optstr ) = ( $mw =~ /^([a-z0-9:_]+)(?:=(.+))?$/ig );
-
-        my %opt;
-
-        foreach my $opt ( split /,/, $optstr ) {
-            my ( $name, $val ) = ( $opt =~ // );
-            $opt{$name} = $val // 1;
-        }
-
-        $builder->add_middleware( $pkg, %opt );
-    }
-};
+field $verbose    : param  //= false;
+field $param      : reader //= {};
+field $app        : reader;
+field $builder    : reader = Plack::Builder->new;
 
 ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
     $param = \%param;
 
-    $self->merge_config( \%param );
+    dmsg $param;
 
     if ( all { $_ } ( $user, $pwhash ) ) {
         $self->add_user( $user, $pwhash );
@@ -65,6 +54,7 @@ ADJUST : params (:$user = undef, :$pwhash = undef, %param) {
 
         $self->config->{userdb}[$i] = $user;
     }
+
 };
 
 method to_psgi {
@@ -84,9 +74,11 @@ ADJUST : params (
     $path = path( $path // $root );
 
     if ( $path->is_dir ) {
+        dmsg $path, $root;
         if ($autoindex) {
             $app = WWW::srvpath::DirIndex->new(
                 root   => $root,
+                mount  => $mount,
                 config => $self->config
             );
         }
@@ -105,6 +97,8 @@ ADJUST : params (
         $app = Plack::App::File->new( file => $path );
     }
 
+    $builder->mount( $app->mount => $app->to_app );
+
     if ($run_config) {
         $builder->mount(
             '/run_config',
@@ -122,8 +116,9 @@ ADJUST : params (
     }
 
     $builder->mount(
-        '/s' => Plack::App::File->new( root => './static' )->to_app
+        '/s' => Plack::App::File->new( root => './share/static' )->to_app
     );
+
     $builder->mount(
         '/s/bulma.min.css' => Plack::App::File->new(
             file => './inc/bulma/css/bulma.min.css'
@@ -132,14 +127,32 @@ ADJUST : params (
 
     $builder->mount(
         '/favicon.ico' =>
-          Plack::App::File->new( file => './static/favicon.ico' )->to_app
+          Plack::App::File->new( file => './share/static/favicon.ico' )->to_app
     );
 
-    $builder->mount( $mount => $app->to_app );
     $self->default_middleware;
 
-    dmsg $self;
   };
+
+ADJUST : params (:$middleware //= []) {
+    foreach my $mw (@$middleware) {
+        my ( $pkg, $optstr ) = ( $mw =~ /^([a-z0-9:_]+)(?:=(.+))?$/ig );
+
+        my %opt;
+
+        foreach my $opt ( split /,/, $optstr ) {
+            my ( $name, $val ) = ( $opt =~ // );
+            $opt{$name} = $val // 1;
+        }
+
+        $builder->add_middleware( $pkg, %opt );
+    }
+};
+
+ADJUST {
+    dmsg $param;
+    $self->merge_config($param);
+}
 
 method add_middleware ( $name, @arg ) {
     push @$middleware, $builder->add_middleware( $name, @arg );
